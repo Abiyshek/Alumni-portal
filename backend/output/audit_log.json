@@ -1,0 +1,13 @@
+{
+  "baseline_auc": 0.9747,
+  "xgb_auc": 0.5,
+  "catboost_auc": 0.5,
+  "ensemble_auc": 0.5,
+  "top_feature": "engagement_score",
+  "n_alumni_scored": 291,
+  "n_train": 232,
+  "n_test": 59,
+  "positive_rate_train": 0.5,
+  "high_propensity_pct": 0.0,
+  "logged_at": "2026-02-16T15:24:16.135041"
+}

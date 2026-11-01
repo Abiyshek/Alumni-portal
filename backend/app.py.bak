@@ -1,0 +1,583 @@
+"""
+Flask Backend API Server with SQLAlchemy Database Integration
+Connects React frontend to Alumni ML Pipeline with persistent database
+"""
+
+import os
+import logging
+from datetime import datetime, timedelta
+from functools import wraps
+from dotenv import load_dotenv
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import jwt
+
+# Import database models
+from models import db, User, Alumni, Engagement, Donation, AuditLog
+
+# Load environment variables
+load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+def create_app():
+    """Factory function to create Flask app"""
+    app = Flask(__name__)
+    
+    # Configuration
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
+        'DATABASE_URL',
+        'sqlite:///alumni.db'
+    )
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['JWT_EXPIRATION'] = 86400  # 24 hours
+    
+    FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+    
+    # Initialize database
+    db.init_app(app)
+    
+    # Enable CORS
+    CORS(app, resources={
+        r"/*": {
+            "origins": [FRONTEND_URL],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": True
+        }
+    })
+
+    
+    # ==================== Authentication ====================
+    def token_required(f):
+        """Decorator to require JWT token"""
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            token = None
+            if 'Authorization' in request.headers:
+                try:
+                    token = request.headers['Authorization'].split(" ")[1]
+                except IndexError:
+                    return jsonify({'error': 'Invalid token format'}), 401
+            
+            if not token:
+                return jsonify({'error': 'Token missing'}), 401
+            
+            try:
+                payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+                current_user = payload['user_id']
+                current_role = payload['role']
+            except jwt.ExpiredSignatureError:
+                return jsonify({'error': 'Token expired'}), 401
+            except jwt.InvalidTokenError as e:
+                return jsonify({'error': f'Invalid token: {str(e)}'}), 401
+            
+            return f(current_user, current_role, *args, **kwargs)
+        
+        return decorated
+    
+    
+    def admin_required(f):
+        """Decorator to require admin role"""
+        @wraps(f)
+        def decorated(current_user, current_role, *args, **kwargs):
+            if current_role != 'admin':
+                return jsonify({'error': 'Admin access required'}), 403
+            return f(current_user, current_role, *args, **kwargs)
+        return decorated
+    
+    
+    # ==================== Authentication Endpoints ====================
+    @app.route('/api/auth/login', methods=['POST'])
+    def login():
+        """
+        Authenticate user and return JWT token
+        Body: {"email": "user@alumni.edu", "password": "password"}
+        """
+        try:
+            data = request.get_json()
+            email = data.get('email')
+            password = data.get('password')
+            
+            if not email or not password:
+                return jsonify({'error': 'Email and password required'}), 400
+            
+            user = User.query.filter_by(email=email).first()
+            if not user or not user.check_password(password):
+                return jsonify({'error': 'Invalid credentials'}), 401
+            
+            if not user.is_active:
+                return jsonify({'error': 'User account is inactive'}), 403
+            
+            # Create JWT token
+            payload = {
+                'user_id': user.email,
+                'role': user.role,
+                'exp': datetime.utcnow() + timedelta(hours=24)
+            }
+            token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
+            
+            # Log audit
+            audit = AuditLog(
+                user_id=user.id,
+                action='login',
+                resource_type='user',
+                resource_id=user.id,
+                status='success',
+                ip_address=request.remote_addr
+            )
+            db.session.add(audit)
+            db.session.commit()
+            
+            logger.info(f"User {email} logged in successfully")
+            
+            return jsonify({
+                'token': token,
+                'user': {
+                    'email': user.email,
+                    'name': user.name,
+                    'role': user.role
+                }
+            }), 200
+        
+        except Exception as e:
+            logger.error(f"Login error: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+
+
+# ==================== Alumni Endpoints ====================
+@app.route('/api/alumni/<alumni_id>', methods=['GET'])
+@token_required
+def get_alumni(current_user, current_role, alumni_id):
+    """
+    Get alumni profile with scores
+    Returns: {alumni_id, name, email, donation_score, engagement_level, last_engagement}
+    """
+    try:
+        # Check if alumni exists in our mock DB
+        if alumni_id not in ALUMNI_DB:
+            # Generate mock alumni data
+            ALUMNI_DB[alumni_id] = {
+                'alumni_id': alumni_id,
+                'name': f'Alumni User {alumni_id}',
+                'email': f'{alumni_id}@alumni.edu',
+                'graduation_year': 2015,
+                'department': 'Computer Science',
+                'engagement_level': 'high',
+                'donation_score': 0.75,
+                'last_engagement': datetime.now().isoformat(),
+                'total_donations': 5000.00,
+                'donation_count': 3,
+                'engagement_events': []
+            }
+        
+        alumni = ALUMNI_DB[alumni_id].copy()
+        
+        logger.info(f"Retrieved profile for alumni {alumni_id}")
+        return jsonify(alumni), 200
+    
+    except Exception as e:
+        logger.error(f"Error getting alumni {alumni_id}: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/alumni/search', methods=['POST'])
+@token_required
+def search_alumni(current_user, current_role):
+    """
+    Search alumni by filters
+    Body: {name_query, department, graduation_year, min_score}
+    """
+    try:
+        filters = request.get_json()
+        
+        # Filter alumni from mock DB
+        results = []
+        for alumni_id, alumni_data in ALUMNI_DB.items():
+            match = True
+            
+            if 'name_query' in filters and filters['name_query']:
+                if filters['name_query'].lower() not in alumni_data['name'].lower():
+                    match = False
+            
+            if 'department' in filters and filters['department']:
+                if alumni_data.get('department') != filters['department']:
+                    match = False
+            
+            if 'graduation_year' in filters and filters['graduation_year']:
+                if alumni_data.get('graduation_year') != filters['graduation_year']:
+                    match = False
+            
+            if match:
+                results.append(alumni_data)
+        
+        logger.info(f"Alumni search returned {len(results)} results")
+        return jsonify({
+            'count': len(results),
+            'results': results
+        }), 200
+    
+    except Exception as e:
+        logger.error(f"Alumni search error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== Engagement Endpoints ====================
+@app.route('/api/alumni/engagement', methods=['POST'])
+@token_required
+def record_engagement(current_user, current_role):
+    """
+    Record alumni engagement event
+    Body: {alumni_id, event_type, description, date}
+    """
+    try:
+        data = request.get_json()
+        alumni_id = data.get('alumni_id')
+        event_type = data.get('event_type')
+        description = data.get('description', '')
+        event_date = data.get('date', datetime.now().isoformat())
+        
+        if not alumni_id or not event_type:
+            return jsonify({'error': 'alumni_id and event_type required'}), 400
+        
+        # Record engagement
+        engagement = {
+            'alumni_id': alumni_id,
+            'event_type': event_type,
+            'description': description,
+            'date': event_date,
+            'recorded_by': current_user,
+            'recorded_at': datetime.now().isoformat()
+        }
+        ENGAGEMENT_LOG.append(engagement)
+        
+        # Update alumni engagement level
+        if alumni_id not in ALUMNI_DB:
+            ALUMNI_DB[alumni_id] = {
+                'alumni_id': alumni_id,
+                'name': f'Alumni {alumni_id}',
+                'email': f'{alumni_id}@alumni.edu',
+                'engagement_level': 'high',
+                'donation_score': 0.5,
+                'last_engagement': event_date,
+                'engagement_events': [event_type]
+            }
+        else:
+            ALUMNI_DB[alumni_id]['last_engagement'] = event_date
+            if 'engagement_events' not in ALUMNI_DB[alumni_id]:
+                ALUMNI_DB[alumni_id]['engagement_events'] = []
+            ALUMNI_DB[alumni_id]['engagement_events'].append(event_type)
+            ALUMNI_DB[alumni_id]['engagement_level'] = 'high'
+        
+        logger.info(f"Recorded {event_type} engagement for alumni {alumni_id}")
+        
+        return jsonify({
+            'message': 'Engagement recorded successfully',
+            'alumni_id': alumni_id,
+            'event_type': event_type,
+            'timestamp': engagement['recorded_at']
+        }), 201
+    
+    except Exception as e:
+        logger.error(f"Error recording engagement: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/alumni/engagement/<alumni_id>', methods=['GET'])
+@token_required
+def get_engagement_history(current_user, current_role, alumni_id):
+    """Get engagement history for an alumni"""
+    try:
+        history = [e for e in ENGAGEMENT_LOG if e['alumni_id'] == alumni_id]
+        
+        return jsonify({
+            'alumni_id': alumni_id,
+            'total_events': len(history),
+            'events': history
+        }), 200
+    
+    except Exception as e:
+        logger.error(f"Error getting engagement history: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== Donation Endpoints ====================
+@app.route('/api/alumni/donation', methods=['POST'])
+@token_required
+def record_donation(current_user, current_role):
+    """
+    Record alumni donation
+    Body: {alumni_id, amount, fund_type, date}
+    """
+    try:
+        data = request.get_json()
+        alumni_id = data.get('alumni_id')
+        amount = float(data.get('amount', 0))
+        fund_type = data.get('fund_type', 'general')
+        donation_date = data.get('date', datetime.now().isoformat())
+        
+        if not alumni_id or amount <= 0:
+            return jsonify({'error': 'alumni_id and valid amount required'}), 400
+        
+        # Record donation
+        donation = {
+            'alumni_id': alumni_id,
+            'amount': amount,
+            'fund_type': fund_type,
+            'date': donation_date,
+            'recorded_by': current_user,
+            'recorded_at': datetime.now().isoformat(),
+            'reference_id': f"DONATE-{alumni_id}-{int(datetime.now().timestamp())}"
+        }
+        DONATION_LOG.append(donation)
+        
+        # Update alumni donation score
+        if alumni_id not in ALUMNI_DB:
+            ALUMNI_DB[alumni_id] = {
+                'alumni_id': alumni_id,
+                'name': f'Alumni {alumni_id}',
+                'email': f'{alumni_id}@alumni.edu',
+                'engagement_level': 'medium',
+                'donation_score': 0.8,
+                'last_engagement': donation_date,
+                'total_donations': amount,
+                'donation_count': 1
+            }
+        else:
+            ALUMNI_DB[alumni_id]['total_donations'] = ALUMNI_DB[alumni_id].get('total_donations', 0) + amount
+            ALUMNI_DB[alumni_id]['donation_count'] = ALUMNI_DB[alumni_id].get('donation_count', 0) + 1
+            ALUMNI_DB[alumni_id]['donation_score'] = min(1.0, ALUMNI_DB[alumni_id].get('donation_score', 0.5) + 0.1)
+            ALUMNI_DB[alumni_id]['last_engagement'] = donation_date
+        
+        logger.info(f"Recorded ${amount} donation for alumni {alumni_id}")
+        
+        return jsonify({
+            'message': 'Donation recorded successfully',
+            'alumni_id': alumni_id,
+            'amount': amount,
+            'reference_id': donation['reference_id'],
+            'timestamp': donation['recorded_at']
+        }), 201
+    
+    except Exception as e:
+        logger.error(f"Error recording donation: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/alumni/donation/<alumni_id>', methods=['GET'])
+@token_required
+def get_donation_history(current_user, current_role, alumni_id):
+    """Get donation history for an alumni"""
+    try:
+        history = [d for d in DONATION_LOG if d['alumni_id'] == alumni_id]
+        total = sum(d['amount'] for d in history)
+        
+        return jsonify({
+            'alumni_id': alumni_id,
+            'total_donations': total,
+            'donation_count': len(history),
+            'donations': history
+        }), 200
+    
+    except Exception as e:
+        logger.error(f"Error getting donation history: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== Forecast Endpoints ====================
+@app.route('/api/alumni/forecast', methods=['POST'])
+@token_required
+def generate_forecast(current_user, current_role):
+    """
+    Generate donation forecast
+    Body: {segment, fund_type}
+    """
+    try:
+        data = request.get_json()
+        segment = data.get('segment', 'all')
+        fund_type = data.get('fund_type', 'general')
+        
+        # Generate mock forecast
+        forecast_data = {
+            'segment': segment,
+            'fund_type': fund_type,
+            'predictions': [
+                {
+                    'month': 'March 2026',
+                    'predicted_donors': 150,
+                    'projected_amount': 50000,
+                    'confidence': 0.87
+                },
+                {
+                    'month': 'April 2026',
+                    'predicted_donors': 165,
+                    'projected_amount': 55000,
+                    'confidence': 0.85
+                },
+                {
+                    'month': 'May 2026',
+                    'predicted_donors': 180,
+                    'projected_amount': 62000,
+                    'confidence': 0.82
+                }
+            ],
+            'summary': {
+                'total_projected': 167000,
+                'avg_confidence': 0.85,
+                'trend': 'increasing'
+            },
+            'generated_at': datetime.now().isoformat()
+        }
+        
+        logger.info(f"Generated forecast for segment {segment}")
+        return jsonify(forecast_data), 200
+    
+    except Exception as e:
+        logger.error(f"Error generating forecast: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== Insights Endpoints ====================
+@app.route('/api/alumni/insights', methods=['POST', 'GET'])
+@token_required
+def get_insights(current_user, current_role):
+    """
+    Get GenAI insights about alumni data
+    POST Body: {question}
+    GET Query: ?question=...
+    """
+    try:
+        # Get question from POST body or GET query parameter
+        if request.method == 'POST':
+            data = request.get_json()
+            question = data.get('question', '')
+        else:
+            question = request.args.get('question', '')
+        
+        if not question:
+            return jsonify({'error': 'Question required'}), 400
+        
+        # Generate mock insights
+        insights = {
+            'question': question,
+            'answer': f"Based on the alumni data, {question.lower()} The analysis shows that executives with 15-20 years of experience have the highest donation propensity (0.88 score), followed by mid-career professionals (0.75 score). Recent graduates still in school have lower engagement but show increasing interest through newsletter subscriptions.",
+            'confidence': 0.89,
+            'data_points_analyzed': 291,
+            'recommendations': [
+                "Focus on executives in tech roles for major gift campaigns",
+                "Develop retention programs for mid-career alumni",
+                "Create mentorship opportunities for recent graduates"
+            ],
+            'generated_at': datetime.now().isoformat()
+        }
+        
+        logger.info(f"Generated insights for question: {question}")
+        return jsonify(insights), 200
+    
+    except Exception as e:
+        logger.error(f"Error generating insights: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== Dashboard Endpoints ====================
+@app.route('/api/dashboard/metrics', methods=['GET'])
+@token_required
+def get_metrics(current_user, current_role):
+    """Get dashboard metrics"""
+    try:
+        metrics = {
+            'total_alumni': len(ALUMNI_DB),
+            'engagement_count': len(ENGAGEMENT_LOG),
+            'total_donations': sum(d['amount'] for d in DONATION_LOG),
+            'avg_donation': sum(d['amount'] for d in DONATION_LOG) / len(DONATION_LOG) if DONATION_LOG else 0,
+            'engagement_rate': round((len(ENGAGEMENT_LOG) / max(len(ALUMNI_DB), 1)) * 100, 2),
+            'high_value_alumni': len([a for a in ALUMNI_DB.values() if a.get('donation_score', 0) > 0.7])
+        }
+        
+        return jsonify(metrics), 200
+    
+    except Exception as e:
+        logger.error(f"Error getting metrics: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/dashboard/recent-activity', methods=['GET'])
+@token_required
+def get_recent_activity(current_user, current_role):
+    """Get recent activity (donations and engagements)"""
+    try:
+        # Combine and sort by date
+        activity = []
+        
+        for engagement in ENGAGEMENT_LOG[-10:]:
+            activity.append({
+                'type': 'engagement',
+                'alumni_id': engagement['alumni_id'],
+                'description': f"{engagement['event_type']} - {engagement['description']}",
+                'date': engagement['date'],
+                'recorded_by': engagement['recorded_by']
+            })
+        
+        for donation in DONATION_LOG[-10:]:
+            activity.append({
+                'type': 'donation',
+                'alumni_id': donation['alumni_id'],
+                'description': f"${donation['amount']} donation to {donation['fund_type']}",
+                'date': donation['date'],
+                'recorded_by': donation['recorded_by']
+            })
+        
+        # Sort by date, most recent first
+        activity = sorted(activity, key=lambda x: x['date'], reverse=True)[:20]
+        
+        return jsonify({'activities': activity}), 200
+    
+    except Exception as e:
+        logger.error(f"Error getting recent activity: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== Health Check ====================
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'version': '1.0.0'
+    }), 200
+
+
+# ==================== Error Handlers ====================
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({'error': 'Endpoint not found'}), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f"Internal server error: {str(error)}")
+    return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.before_request
+def log_request():
+    """Log incoming requests"""
+    logger.info(f"{request.method} {request.path}")
+
+
+if __name__ == '__main__':
+    port = int(os.getenv('PORT', 5000))
+    debug = os.getenv('DEBUG', 'False') == 'True'
+    
+    logger.info(f"Starting Flask server on http://0.0.0.0:{port}")
+    logger.info(f"Frontend URL: {FRONTEND_URL}")
+    
+    app.run(host='0.0.0.0', port=port, debug=debug)

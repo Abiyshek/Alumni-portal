@@ -1,0 +1,104 @@
+.parameters-card {
+  margin-bottom: 30px;
+}
+
+.parameters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.parameters-grid .form-group {
+  margin: 0;
+}
+
+.forecast-btn {
+  align-self: flex-end;
+}
+
+.forecast-metric {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.forecast-metric .metric-label {
+  font-size: 14px;
+  color: #7f8c8d;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.forecast-metric .metric-value {
+  font-size: 32px;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.recommendations {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.recommendation-item {
+  display: flex;
+  gap: 15px;
+  padding: 15px;
+  background-color: #f0f7ff;
+  border-left: 4px solid #3498db;
+  border-radius: 4px;
+}
+
+.rec-number {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #3498db;
+  color: white;
+  border-radius: 50%;
+  font-weight: bold;
+}
+
+.rec-text {
+  flex: 1;
+  color: #2c3e50;
+  font-size: 15px;
+}
+
+.details-card {
+  margin-top: 30px;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-item label {
+  font-size: 12px;
+  color: #7f8c8d;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.detail-item value {
+  font-size: 16px;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .parameters-grid {
+    grid-template-columns: 1fr;
+  }
+}
