@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import avatar %}
+{% block title %}Admin{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Administration</h1></div>
+
+<div class="stats">
+  <div class="card stat"><b>{{ counts.get('pending', 0) }}</b><span>awaiting approval</span></div>
+  <div class="card stat"><b>{{ counts.get('approved', 0) }}</b><span>verified alumni</span></div>
+  <div class="card stat"><b>{{ totals.events }}</b><span>events</span></div>
+  <div class="card stat"><b>{{ totals.jobs }}</b><span>open jobs</span></div>
+  <div class="card stat"><b>{{ totals.memories }}</b><span>memories</span></div>
+</div>
+
+<div class="two-col wide-left">
+  <section class="card">
+    <div class="chips">
+      {% for s in ['pending', 'approved', 'suspended', 'rejected', 'all'] %}
+        <a class="chip {{ 'on' if status == s }}" href="{{ url_for('admin', status=s) }}">{{ s|capitalize }}{% if s != 'all' %} ({{ counts.get(s, 0) }}){% endif %}</a>
+      {% endfor %}
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Batch</th><th>Details</th><th>Registered</th><th></th></tr></thead>
+        <tbody>
+        {% for u in users %}
+          <tr>
+            <td><div class="person-line">{{ avatar(u) }}<span><b>{{ u.name }}</b>{% if u.role == 'admin' %} <span class="tag">admin</span>{% endif %}<br><small class="muted">{{ u.email }}</small></span></div></td>
+            <td>{{ u.batch_year }}<br><small class="muted">Class {{ u.last_class }}</small></td>
+            <td class="small">{{ u.stream or '' }}{% if u.admission_no %}<br>Adm. no. {{ u.admission_no }}{% endif %}{% if u.city %}<br>{{ u.city }}{% endif %}</td>
+            <td class="small">{{ u.created_at|datefmt }}<br><span class="tag status-{{ u.status }}">{{ u.status }}</span></td>
+            <td class="actions-cell">
+              {% if u.id != user.id %}
+                {% set acts = {'pending': ['approve', 'reject'], 'approved': ['suspend'], 'suspended': ['restore'], 'rejected': ['approve']}[u.status] %}
+                {% for a in acts %}
+                  <form method="post" action="{{ url_for('admin_user_action', uid=u.id, action=a) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="next" value="{{ request.full_path }}">
+                    <button class="btn sm {{ 'danger' if a in ('reject', 'suspend') else '' }}">{{ a|capitalize }}</button>
+                  </form>
+                {% endfor %}
+                {% if u.status == 'approved' %}
+                  {% set ra = 'remove_admin' if u.role == 'admin' else 'make_admin' %}
+                  <form method="post" action="{{ url_for('admin_user_action', uid=u.id, action=ra) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="next" value="{{ request.full_path }}">
+                    <button class="btn sm ghost">{{ 'Remove admin' if u.role == 'admin' else 'Make admin' }}</button>
+                  </form>
+                {% endif %}
+                <form method="post" action="{{ url_for('admin_user_action', uid=u.id, action='delete') }}" onsubmit="return confirm('Permanently delete this account?')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="next" value="{{ request.full_path }}">
+                  <button class="link-btn danger-text">Delete</button>
+                </form>
+              {% else %}<span class="muted small">you</span>{% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="empty">Nothing here.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <aside class="card">
+    <h2>Alumni by batch</h2>
+    {% set maxc = (by_batch|map(attribute='c')|max) if by_batch else 1 %}
+    {% for b in by_batch %}
+      <div class="bar-row"><span>{{ b.batch_year }}</span><span class="bar"><i style="width: {{ (b.c / maxc * 100)|round }}%"></i></span><b>{{ b.c }}</b></div>
+    {% else %}<p class="empty">No verified alumni yet.</p>{% endfor %}
+    <p class="small muted mt">Quick links: <a href="{{ url_for('new_event') }}">New event</a> · <a href="{{ url_for('news') }}">Post news</a></p>
+  </aside>
+</div>
+{% endblock %}

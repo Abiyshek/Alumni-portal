@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import avatar %}
+{% block title %}{{ e.title }}{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('events') }}">← All events</a></p>
+<div class="two-col wide-left">
+  <article class="card">
+    <h1>{{ e.title }}</h1>
+    <p class="muted">🕒 {{ e.starts_at|datefmt('%A, %d %B %Y · %I:%M %p') }}<br>📍 {{ e.location }}</p>
+    <p class="prewrap">{{ e.description }}</p>
+    {% if not is_past %}
+      <form method="post" action="{{ url_for('rsvp', eid=e.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn {{ 'ghost' if e.mine }}">{{ "✓ You're going — cancel RSVP" if e.mine else "I'll attend" }}</button>
+      </form>
+    {% else %}<p class="tag">This event has ended</p>{% endif %}
+    {% if user.role == 'admin' %}
+      <form method="post" action="{{ url_for('delete_event', eid=e.id) }}" onsubmit="return confirm('Delete this event?')" class="mt">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn danger sm">Delete event</button>
+      </form>
+    {% endif %}
+  </article>
+  <aside class="card">
+    <h2>{{ attendees|length }} attending</h2>
+    {% for a in attendees %}
+      <a class="person-line" href="{{ url_for('profile', uid=a.id) }}">{{ avatar(a) }}<span>{{ a.name }}<br><small class="muted">Batch {{ a.batch_year }}</small></span></a>
+    {% else %}<p class="empty">Be the first to RSVP!</p>{% endfor %}
+  </aside>
+</div>
+{% endblock %}

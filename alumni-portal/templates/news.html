@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}News{% endblock %}
+{% block content %}
+<div class="page-head"><h1>News &amp; announcements</h1></div>
+
+{% if user and user.role == 'admin' %}
+  <form method="post" action="{{ url_for('new_news') }}" class="card form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <h3>Post an announcement</h3>
+    <label class="field"><span>Title</span><input name="title" required></label>
+    <label class="field"><span>Message</span><textarea name="body" rows="4" required></textarea></label>
+    <button class="btn">Publish</button>
+  </form>
+{% endif %}
+
+{% for n in items %}
+  <article class="card news">
+    <h2>{{ n.title }}</h2>
+    <p class="muted small">{{ n.created_at|datefmt('%d %B %Y') }}{% if n.author %} · {{ n.author }}{% endif %}</p>
+    <p class="prewrap">{{ n.body }}</p>
+    {% if user and user.role == 'admin' %}
+      <form method="post" action="{{ url_for('delete_news', nid=n.id) }}" onsubmit="return confirm('Delete this announcement?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn sm danger">Delete</button>
+      </form>
+    {% endif %}
+  </article>
+{% else %}
+  <p class="empty card">No announcements yet.</p>
+{% endfor %}
+{% endblock %}

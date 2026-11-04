@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Jobs &amp; opportunities{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Jobs &amp; opportunities</h1>
+  <a class="btn" href="{{ url_for('new_job') }}">+ Post an opportunity</a>
+</div>
+<div class="chips">
+  <a href="{{ url_for('jobs') }}" class="chip {{ 'on' if not job_type }}">All</a>
+  {% for t in job_types %}<a href="{{ url_for('jobs', type=t) }}" class="chip {{ 'on' if job_type == t }}">{{ t }}</a>{% endfor %}
+</div>
+
+{% for j in jobs %}
+  <article class="card job">
+    <div class="row-between">
+      <div>
+        <h3>{{ j.title }}</h3>
+        <p class="muted">{{ j.company }}{% if j.location %} · {{ j.location }}{% endif %}</p>
+      </div>
+      <span class="tag accent">{{ j.job_type }}</span>
+    </div>
+    <p class="prewrap">{{ j.description }}</p>
+    <div class="row-between">
+      <span class="small muted">Posted by <a href="{{ url_for('profile', uid=j.posted_by) }}">{{ j.poster }}</a> (Batch {{ j.poster_batch }}) · {{ j.created_at|datefmt }}</span>
+      <span class="row">
+        {% if j.apply_link %}<a class="btn sm" href="{{ j.apply_link }}" target="_blank" rel="noopener nofollow">Apply ↗</a>{% endif %}
+        {% if j.posted_by == user.id or user.role == 'admin' %}
+          <form method="post" action="{{ url_for('job_action', jid=j.id, action='close') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn sm ghost">Close</button></form>
+          <form method="post" action="{{ url_for('job_action', jid=j.id, action='delete') }}" onsubmit="return confirm('Delete this listing?')"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn sm danger">Delete</button></form>
+        {% endif %}
+      </span>
+    </div>
+  </article>
+{% else %}
+  <p class="empty card">No open opportunities{% if job_type %} of this type{% endif %}. Know of one? Post it for fellow alumni.</p>
+{% endfor %}
+
+{% if closed_mine %}
+  <h2 class="section-title">Your closed listings</h2>
+  <div class="card">
+    {% for j in closed_mine %}
+      <div class="list-item row-between"><span>{{ j.title }} · <span class="muted">{{ j.company }}</span></span>
+        <form method="post" action="{{ url_for('job_action', jid=j.id, action='reopen') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn sm ghost">Reopen</button></form></div>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import avatar, field, profile_fields %}
+{% block title %}Edit profile{% endblock %}
+{% block content %}
+<div class="auth-wide">
+  <div class="page-head"><h1>Edit your profile</h1></div>
+  <form method="post" enctype="multipart/form-data" class="card form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <fieldset>
+      <legend>Basics</legend>
+      <div class="photo-row">
+        {{ avatar(user, 'xl') }}
+        <label class="field grow">
+          <span>Profile photo</span>
+          <input type="file" name="photo" accept="image/png,image/jpeg,image/webp">
+          <small>PNG, JPG or WEBP, under 3 MB.</small>
+        </label>
+      </div>
+      <div class="grid-2">
+        {{ field('name', 'Full name', v, required=true) }}
+        <label class="field"><span>Email</span><input type="email" value="{{ user.email }}" disabled><small>Contact the coordinator to change your email.</small></label>
+      </div>
+    </fieldset>
+    {{ profile_fields(v, streams, classes, now_year, school.established) }}
+    <div class="form-actions">
+      <button class="btn lg" type="submit">Save changes</button>
+      <a href="{{ url_for('dashboard') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

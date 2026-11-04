@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import field %}
+{% block title %}New event{% endblock %}
+{% block content %}
+<div class="auth-wide">
+  <div class="page-head"><h1>Create an event</h1></div>
+  <form method="post" class="card form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ field('title', 'Event title', v, required=true, placeholder='e.g. Silver Jubilee Reunion – Batch of 2000') }}
+    <div class="grid-2">
+      {{ field('starts_at', 'Date & time', v, 'datetime-local', true) }}
+      {{ field('location', 'Venue', v, required=true, placeholder='e.g. School Auditorium, Kalapet') }}
+    </div>
+    <label class="field"><span>Description <em>*</em></span><textarea name="description" rows="6" required>{{ v.get('description') or '' }}</textarea></label>
+    <div class="form-actions"><button class="btn lg">Publish event</button><a href="{{ url_for('events') }}">Cancel</a></div>
+  </form>
+</div>
+{% endblock %}

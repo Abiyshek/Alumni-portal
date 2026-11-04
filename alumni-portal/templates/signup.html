@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import field, profile_fields %}
+{% block title %}Register{% endblock %}
+{% block content %}
+<div class="auth-wide">
+  <div class="auth-head">
+    <h1>Register as an alumnus / alumna</h1>
+    <p class="muted">Takes about two minutes. {% if config.REQUIRE_APPROVAL %}A school administrator verifies every new account before it can see the directory.{% endif %}</p>
+  </div>
+  <form method="post" class="card form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <fieldset>
+      <legend>Account</legend>
+      <div class="grid-2">
+        {{ field('name', 'Full name', v, required=true, attrs='autocomplete="name"') }}
+        {{ field('email', 'Email', v, 'email', true, attrs='autocomplete="email"') }}
+        <label class="field">
+          <span>Password <em>*</em></span>
+          <input type="password" name="password" required minlength="8" autocomplete="new-password">
+          <small>At least 8 characters, with letters and numbers.</small>
+        </label>
+        <label class="field">
+          <span>Confirm password <em>*</em></span>
+          <input type="password" name="confirm_password" required autocomplete="new-password">
+        </label>
+      </div>
+    </fieldset>
+    {{ profile_fields(v, streams, classes, now_year, school.established) }}
+    <label class="check"><input type="checkbox" name="agree" value="1" required> I confirm that I studied at {{ school.name }} and the details above are true.</label>
+    <div class="form-actions">
+      <button class="btn lg" type="submit">Create account</button>
+      <span class="muted">Already registered? <a href="{{ url_for('login') }}">Sign in</a></span>
+    </div>
+  </form>
+</div>
+{% endblock %}

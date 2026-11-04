@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import avatar %}
+{% block title %}Alumni directory{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Alumni directory</h1>
+  <p class="muted">{{ people|length }} {{ 'person' if people|length == 1 else 'people' }} found</p>
+</div>
+<form class="filters card" method="get">
+  <input type="search" name="q" value="{{ q }}" placeholder="Name, profession, company…">
+  <select name="batch">
+    <option value="">All batches</option>
+    {% for b in batches %}<option value="{{ b }}" {{ 'selected' if batch == b|string }}>{{ b }}</option>{% endfor %}
+  </select>
+  <input type="text" name="city" value="{{ city }}" placeholder="City">
+  <label class="check inline"><input type="checkbox" name="mentor" value="1" {{ 'checked' if mentor }}> Mentors only</label>
+  <button class="btn">Search</button>
+  {% if q or batch or city or mentor %}<a href="{{ url_for('directory') }}" class="small">Clear</a>{% endif %}
+</form>
+
+<div class="people">
+  {% for p in people %}
+    <a class="person card" href="{{ url_for('profile', uid=p.id) }}">
+      {{ avatar(p, 'md') }}
+      <div>
+        <h3>{{ p.name }}</h3>
+        <p class="muted small">Batch {{ p.batch_year }}{% if p.stream and p.stream != 'Not applicable' %} · {{ p.stream }}{% endif %}</p>
+        {% if p.occupation or p.organization %}<p class="small">{{ p.occupation }}{% if p.occupation and p.organization %} at {% endif %}{{ p.organization }}</p>{% endif %}
+        <p class="small muted">{{ p.city or '' }}</p>
+        {% if p.willing_to_mentor %}<span class="tag accent">Mentor</span>{% endif %}
+        {% if p.role == 'admin' %}<span class="tag">Coordinator</span>{% endif %}
+      </div>
+    </a>
+  {% else %}
+    <p class="empty card">No alumni match your search.</p>
+  {% endfor %}
+</div>
+{% endblock %}
