@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import avatar %}
+{% block title %}{{ p.name }}{% endblock %}
+{% block content %}
+<section class="card profile-hero">
+  {{ avatar(p, 'xl') }}
+  <div class="grow">
+    <h1>{{ p.name }}</h1>
+    <p class="lead-sm">{{ p.occupation or '' }}{% if p.occupation and p.organization %} at {% endif %}{{ p.organization or '' }}</p>
+    <p class="muted">Batch of {{ p.batch_year }} · Class {{ p.last_class }}{% if p.stream and p.stream != 'Not applicable' %} · {{ p.stream }}{% endif %}{% if p.house %} · {{ p.house }} House{% endif %}</p>
+    <div class="tags">
+      {% if p.willing_to_mentor %}<span class="tag accent">Open to mentoring</span>{% endif %}
+      {% if p.industry %}<span class="tag">{{ p.industry }}</span>{% endif %}
+      {% if p.city %}<span class="tag">📍 {{ p.city }}{% if p.country %}, {{ p.country }}{% endif %}</span>{% endif %}
+    </div>
+  </div>
+  {% if p.id == user.id %}<a class="btn ghost" href="{{ url_for('edit_profile') }}">Edit profile</a>{% endif %}
+</section>
+
+<div class="two-col">
+  <section class="card">
+    <h2>About</h2>
+    {% if p.bio %}<p class="prewrap">{{ p.bio }}</p>{% else %}<p class="empty">No bio yet.</p>{% endif %}
+    {% if memories %}
+      <h3>Memories shared</h3>
+      {% for m in memories %}<blockquote>{{ m.body }}</blockquote>{% endfor %}
+    {% endif %}
+  </section>
+  <section class="card">
+    <h2>Contact</h2>
+    {% if p.show_contact or p.id == user.id or user.role == 'admin' %}
+      <p>✉️ <a href="mailto:{{ p.email }}">{{ p.email }}</a></p>
+      {% if p.phone %}<p>📞 {{ p.phone }}</p>{% endif %}
+    {% else %}
+      <p class="muted">{{ p.name.split()[0] }} has chosen to keep contact details private.</p>
+    {% endif %}
+    {% if p.linkedin %}<p>🔗 <a href="{{ p.linkedin }}" target="_blank" rel="noopener nofollow">{{ p.linkedin|replace('https://', '')|truncate(40) }}</a></p>{% endif %}
+    {% if jobs %}
+      <h3>Open opportunities posted</h3>
+      {% for j in jobs %}<p><a href="{{ url_for('jobs') }}">{{ j.title }}</a> · <span class="muted">{{ j.company }}</span></p>{% endfor %}
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Awaiting verification{% endblock %}
+{% block content %}
+<div class="auth">
+  <div class="card center pad-lg">
+    <div class="big-ico">⏳</div>
+    <h1>Thanks for registering, {{ user.name.split()[0] }}!</h1>
+    <p>Your account is waiting for verification by the school's alumni coordinator. Once approved, you'll get full access to the
+      directory, events, jobs and the memories wall.</p>
+    <p class="muted small">Registered as batch of {{ user.batch_year }} · Class {{ user.last_class }}{% if user.stream %} · {{ user.stream }}{% endif %}</p>
+    <div class="actions center">
+      <a class="btn" href="{{ url_for('edit_profile') }}">Complete your profile meanwhile</a>
+      <a class="btn ghost" href="{{ url_for('news') }}">Read school news</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

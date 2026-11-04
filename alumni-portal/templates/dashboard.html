@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import avatar %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<section class="welcome">
+  <div class="welcome-id">
+    {{ avatar(user, 'lg') }}
+    <div>
+      <h1>Hello, {{ user.name.split()[0] }}</h1>
+      <p class="muted">Batch of {{ user.batch_year }} · Class {{ user.last_class }}{% if user.stream %} · {{ user.stream }}{% endif %}{% if user.city %} · {{ user.city }}{% endif %}</p>
+    </div>
+  </div>
+  {% if completeness < 100 %}
+  <a class="progress-card" href="{{ url_for('edit_profile') }}">
+    <span>Profile {{ completeness }}% complete</span>
+    <span class="bar"><i style="width: {{ completeness }}%"></i></span>
+    <small>Add more details so batchmates can find you →</small>
+  </a>
+  {% endif %}
+</section>
+
+<div class="quick">
+  <a href="{{ url_for('directory') }}"><span>👥</span>Find alumni</a>
+  <a href="{{ url_for('directory', mentor=1) }}"><span>🎓</span>Mentors</a>
+  <a href="{{ url_for('new_job') }}"><span>💼</span>Post a job</a>
+  <a href="{{ url_for('memories') }}"><span>📝</span>Share a memory</a>
+</div>
+
+<div class="two-col">
+  <section class="card">
+    <div class="card-head"><h2>Upcoming events</h2><a href="{{ url_for('events') }}">All →</a></div>
+    {% for e in events %}
+      <div class="event-row">
+        <div class="date-chip"><b>{{ e.starts_at|datefmt('%d') }}</b><span>{{ e.starts_at|datefmt('%b') }}</span></div>
+        <div class="grow"><h4><a href="{{ url_for('event_detail', eid=e.id) }}">{{ e.title }}</a></h4>
+          <p class="muted small">{{ e.location }} · {{ e.going }} going</p></div>
+        <form method="post" action="{{ url_for('rsvp', eid=e.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="next" value="{{ request.path }}">
+          <button class="btn sm {{ 'ghost' if e.mine }}">{{ "✓ Going" if e.mine else "RSVP" }}</button>
+        </form>
+      </div>
+    {% else %}<p class="empty">No upcoming events.</p>{% endfor %}
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Your batchmates ({{ user.batch_year }})</h2><a href="{{ url_for('directory', batch=user.batch_year) }}">All →</a></div>
+    {% if batchmates %}
+      <div class="mini-people">
+        {% for p in batchmates %}
+          <a href="{{ url_for('profile', uid=p.id) }}">{{ avatar(p) }}<span>{{ p.name }}</span></a>
+        {% endfor %}
+      </div>
+    {% else %}<p class="empty">No one from your batch has joined yet. Invite them!</p>{% endif %}
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Latest opportunities</h2><a href="{{ url_for('jobs') }}">All →</a></div>
+    {% for j in jobs %}
+      <div class="list-item"><h4>{{ j.title }}</h4><p class="muted small">{{ j.company }}{% if j.location %} · {{ j.location }}{% endif %} · <span class="tag">{{ j.job_type }}</span></p></div>
+    {% else %}<p class="empty">No open listings. <a href="{{ url_for('new_job') }}">Post one</a>.</p>{% endfor %}
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>News from school</h2><a href="{{ url_for('news') }}">All →</a></div>
+    {% for n in news %}
+      <div class="list-item"><h4>{{ n.title }}</h4><p class="muted small">{{ n.created_at|datefmt }}</p><p>{{ n.body|truncate(140) }}</p></div>
+    {% else %}<p class="empty">No announcements yet.</p>{% endfor %}
+  </section>
+</div>
+{% endblock %}

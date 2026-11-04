@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<div class="auth">
+  <div class="auth-head">
+    <span class="crest lg" aria-hidden="true">KV</span>
+    <h1>Welcome back</h1>
+    <p class="muted">Sign in to the {{ school.short }} alumni network.</p>
+  </div>
+  <form method="post" class="card form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="field"><span>Email</span><input type="email" name="email" value="{{ email }}" required autofocus autocomplete="email"></label>
+    <label class="field"><span>Password</span><input type="password" name="password" required autocomplete="current-password"></label>
+    <label class="check"><input type="checkbox" name="remember" value="1"> Keep me signed in for 7 days</label>
+    <button class="btn lg block" type="submit">Sign in</button>
+    <p class="small muted center">Forgot your password? Contact the alumni coordinator at school to reset it.</p>
+  </form>
+  <p class="center">New here? <a href="{{ url_for('signup') }}">Register as alumni</a></p>
+</div>
+{% endblock %}

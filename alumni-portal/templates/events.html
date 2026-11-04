@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Events{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Events &amp; reunions</h1>
+  {% if user.role == 'admin' %}<a class="btn" href="{{ url_for('new_event') }}">+ New event</a>{% endif %}
+</div>
+
+<div class="event-cards">
+  {% for e in upcoming %}
+    <article class="card event-card">
+      <div class="date-chip lg"><b>{{ e.starts_at|datefmt('%d') }}</b><span>{{ e.starts_at|datefmt('%b %Y') }}</span></div>
+      <div class="grow">
+        <h3><a href="{{ url_for('event_detail', eid=e.id) }}">{{ e.title }}</a></h3>
+        <p class="muted small">🕒 {{ e.starts_at|datefmt('%A, %I:%M %p') }} · 📍 {{ e.location }}</p>
+        <p>{{ e.description|truncate(180) }}</p>
+        <div class="row">
+          <form method="post" action="{{ url_for('rsvp', eid=e.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="next" value="{{ request.path }}">
+            <button class="btn sm {{ 'ghost' if e.mine }}">{{ "✓ You're going" if e.mine else "I'll attend" }}</button>
+          </form>
+          <span class="muted small">{{ e.going }} attending</span>
+        </div>
+      </div>
+    </article>
+  {% else %}
+    <p class="empty card">No upcoming events. Check back soon!</p>
+  {% endfor %}
+</div>
+
+{% if past %}
+<h2 class="section-title">Past events</h2>
+<div class="card">
+  {% for e in past %}
+    <div class="list-item row-between"><span><a href="{{ url_for('event_detail', eid=e.id) }}">{{ e.title }}</a></span><span class="muted small">{{ e.starts_at|datefmt }} · {{ e.going }} attended</span></div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

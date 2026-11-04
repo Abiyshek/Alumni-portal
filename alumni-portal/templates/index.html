@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Welcome{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-text">
+    <p class="eyebrow">Alumni Association · Since {{ school.established }}</p>
+    <h1>Once a Kendriya Vidyalaya student, always part of the family.</h1>
+    <p class="lead">The official meeting place for former students of {{ school.name }}. Find your batchmates,
+      come back for reunions, share opportunities, and guide the students walking the same corridors today.</p>
+    <div class="actions">
+      {% if user %}
+        <a class="btn lg" href="{{ url_for('dashboard') }}">Go to your dashboard</a>
+      {% else %}
+        <a class="btn lg" href="{{ url_for('signup') }}">Register as alumni</a>
+        <a class="btn lg ghost" href="{{ url_for('login') }}">I already have an account</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="hero-card">
+    <div class="stat"><b>{{ stats.alumni }}</b><span>verified alumni</span></div>
+    <div class="stat"><b>{{ stats.batches }}</b><span>batches represented</span></div>
+    <div class="stat"><b>{{ stats.mentors }}</b><span>volunteer mentors</span></div>
+    <div class="stat"><b>{{ stats.events }}</b><span>upcoming events</span></div>
+  </div>
+</section>
+
+<section class="features">
+  <div class="feature"><span class="ico">👥</span><h3>Alumni directory</h3><p>Search by batch, city or profession and reconnect with classmates.</p></div>
+  <div class="feature"><span class="ico">📅</span><h3>Reunions &amp; events</h3><p>RSVP for alumni meets, career talks and school celebrations.</p></div>
+  <div class="feature"><span class="ico">💼</span><h3>Jobs &amp; internships</h3><p>Share openings at your organisation with fellow Vidyalaya alumni.</p></div>
+  <div class="feature"><span class="ico">🎓</span><h3>Mentorship</h3><p>Volunteer to guide Class XII students on careers and college choices.</p></div>
+</section>
+
+<div class="two-col">
+  <section class="card">
+    <div class="card-head"><h2>Latest news</h2><a href="{{ url_for('news') }}">All news →</a></div>
+    {% for n in news %}
+      <article class="list-item"><h4>{{ n.title }}</h4><p class="muted small">{{ n.created_at|datefmt }}</p><p>{{ n.body|truncate(160) }}</p></article>
+    {% else %}
+      <p class="empty">No announcements yet.</p>
+    {% endfor %}
+  </section>
+  <section class="card">
+    <div class="card-head"><h2>Upcoming events</h2>{% if user %}<a href="{{ url_for('events') }}">All events →</a>{% endif %}</div>
+    {% for e in events %}
+      <div class="event-row">
+        <div class="date-chip"><b>{{ e.starts_at|datefmt('%d') }}</b><span>{{ e.starts_at|datefmt('%b') }}</span></div>
+        <div><h4>{{ e.title }}</h4><p class="muted small">{{ e.location }} · {{ e.starts_at|datefmt('%I:%M %p') }}</p></div>
+      </div>
+    {% else %}
+      <p class="empty">No upcoming events right now.</p>
+    {% endfor %}
+    {% if not user and events %}<p class="small muted">Sign in to RSVP.</p>{% endif %}
+  </section>
+</div>
+{% endblock %}

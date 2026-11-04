@@ -1,0 +1,57 @@
+{% macro avatar(p, size='sm') -%}
+  {%- if p.photo -%}
+    <img class="avatar {{ size }}" src="{{ url_for('uploaded_file', filename=p.photo) }}" alt="">
+  {%- else -%}
+    <span class="avatar {{ size }}" aria-hidden="true">{{ p.name|initials }}</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro field(name, label, v, type='text', required=false, placeholder='', hint='', attrs='') -%}
+  <label class="field">
+    <span>{{ label }}{% if required %} <em>*</em>{% endif %}</span>
+    <input type="{{ type }}" name="{{ name }}" value="{{ v.get(name) or '' }}" placeholder="{{ placeholder }}"
+           {{ 'required' if required }} {{ attrs|safe }}>
+    {% if hint %}<small>{{ hint }}</small>{% endif %}
+  </label>
+{%- endmacro %}
+
+{% macro select(name, label, options, v, required=false, blank='Select…') -%}
+  <label class="field">
+    <span>{{ label }}{% if required %} <em>*</em>{% endif %}</span>
+    <select name="{{ name }}" {{ 'required' if required }}>
+      {% if blank %}<option value="">{{ blank }}</option>{% endif %}
+      {% for o in options %}<option value="{{ o }}" {{ 'selected' if (v.get(name)|string) == (o|string) }}>{{ o }}</option>{% endfor %}
+    </select>
+  </label>
+{%- endmacro %}
+
+{% macro profile_fields(v, streams, classes, now_year, established) -%}
+  <fieldset>
+    <legend>Your school years</legend>
+    <div class="grid-3">
+      {{ field('batch_year', 'Pass-out / leaving year', v, 'number', true, 'e.g. 2015', '', 'min="' ~ established ~ '" max="' ~ (now_year + 1) ~ '"') }}
+      {{ select('last_class', 'Last class at KV', classes, v, true, '') }}
+      {{ select('stream', 'Stream (Class XI–XII)', streams, v) }}
+      {{ field('house', 'House', v, placeholder='e.g. Shivaji, Tagore…') }}
+      {{ field('admission_no', 'Admission no. (optional)', v, hint='Helps the school verify you faster.') }}
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend>Where you are now</legend>
+    <div class="grid-3">
+      {{ field('occupation', 'Occupation / role', v, placeholder='e.g. Software Engineer, Student') }}
+      {{ field('organization', 'Organisation / college', v) }}
+      {{ field('industry', 'Industry / field', v, placeholder='e.g. Healthcare, IT, Defence') }}
+      {{ field('city', 'City', v) }}
+      {{ field('country', 'Country', v) }}
+      {{ field('phone', 'Phone', v, 'tel') }}
+    </div>
+    {{ field('linkedin', 'LinkedIn / website', v, 'url', placeholder='https://') }}
+    <label class="field">
+      <span>About you</span>
+      <textarea name="bio" rows="4" maxlength="1000" placeholder="A few lines about your journey since school…">{{ v.get('bio') or '' }}</textarea>
+    </label>
+    <label class="check"><input type="checkbox" name="willing_to_mentor" value="1" {{ 'checked' if v.get('willing_to_mentor') }}> I'm willing to mentor current students and younger alumni</label>
+    <label class="check"><input type="checkbox" name="show_contact" value="1" {{ 'checked' if v.get('show_contact') }}> Show my email and phone to other verified alumni</label>
+  </fieldset>
+{%- endmacro %}

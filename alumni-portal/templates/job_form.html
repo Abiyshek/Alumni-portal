@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import field, select %}
+{% block title %}Post an opportunity{% endblock %}
+{% block content %}
+<div class="auth-wide">
+  <div class="page-head"><h1>Post an opportunity</h1></div>
+  <form method="post" class="card form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="grid-2">
+      {{ field('title', 'Role / title', v, required=true) }}
+      {{ field('company', 'Organisation', v, required=true) }}
+      {{ field('location', 'Location', v, placeholder='City, or Remote') }}
+      {{ select('job_type', 'Type', job_types, v, true, '') }}
+    </div>
+    <label class="field"><span>Description <em>*</em></span><textarea name="description" rows="6" required placeholder="Responsibilities, eligibility, how to reach you…">{{ v.get('description') or '' }}</textarea></label>
+    {{ field('apply_link', 'Application link (optional)', v, 'url', placeholder='https://') }}
+    <div class="form-actions"><button class="btn lg">Post</button><a href="{{ url_for('jobs') }}">Cancel</a></div>
+  </form>
+</div>
+{% endblock %}
