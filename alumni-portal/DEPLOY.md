@@ -47,6 +47,29 @@ From now on, every push to `main` redeploys the website automatically.
 
 ---
 
+## Faster option: deploy from your own computer
+
+Parts 1 and 2 can also be done from the command line, with no dashboard clicks.
+
+1. Save your PythonAnywhere API token (Account → API Token) in the file `~/.pythonanywhere_token`.
+2. Run `python manage.py create-admin` locally, then:
+
+   ```bash
+   python deploy/pythonanywhere_deploy.py YOUR_USERNAME --with-db
+   ```
+
+   This uploads the code and your local database, creates and configures the web app, reloads it, and checks `/api/me`.
+   Leave out `--with-db` on later updates, because it would overwrite the live database.
+3. For the website, run `vercel login`, then in `web/`:
+
+   ```bash
+   vercel link --yes --project kv2-alumni-portal
+   vercel env add API_URL production
+   vercel deploy --prod
+   ```
+
+The live portal is at https://kv2-alumni-portal.vercel.app, with its API at https://sheky.pythonanywhere.com.
+
 ## Updating the API later
 
 After you merge new changes, open a PythonAnywhere **Bash** console and run:
