@@ -31,6 +31,28 @@ function Admin() {
     }
   }
 
+  const [resetLinks, setResetLinks] = useState({});
+
+  async function makeResetLink(u) {
+    try {
+      const r = await api(`/admin/users/${u.id}/reset-link`, { method: "POST" });
+      const url = window.location.origin + r.path;
+      setResetLinks((links) => ({ ...links, [u.id]: url }));
+      await copy(url, `Reset link for ${u.name} copied. It works once, for ${r.hours} hours.`);
+    } catch (e) {
+      toast(e.message, "error");
+    }
+  }
+
+  async function copy(text, message = "Copied.") {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(message);
+    } catch {
+      toast("Couldn't copy automatically. Select the link and copy it.", "error");
+    }
+  }
+
   const counts = data?.counts || {};
   const maxBatch = Math.max(1, ...(data?.by_batch || []).map((b) => b.c));
 
@@ -91,7 +113,14 @@ function Admin() {
                                 {LABELS[u.role === "admin" ? "remove_admin" : "make_admin"]}
                               </button>
                             )}
+                            <button className="btn sm ghost" onClick={() => makeResetLink(u)}><Icon name="key" size={14} /> Reset password</button>
                             <button className="link-btn" onClick={() => act(u, "delete")} aria-label={`Delete ${u.name}`}><Icon name="trash" size={15} /></button>
+                          </div>
+                        )}
+                        {resetLinks[u.id] && (
+                          <div className="reset-link">
+                            <code title={resetLinks[u.id]}>{resetLinks[u.id]}</code>
+                            <button className="btn sm outline" onClick={() => copy(resetLinks[u.id])}><Icon name="copy" size={13} /> Copy</button>
                           </div>
                         )}
                       </td>

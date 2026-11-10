@@ -149,6 +149,49 @@ class ApiTest(unittest.TestCase):
         admin.post(f"/api/admin/users/{user['id']}/suspend")
         self.assertEqual(alum.get("/api/dashboard").status_code, 401)
 
+    def test_password_reset_link(self):
+        alum, r = self.signup()
+        uid = r.get_json()["user"]["id"]
+        admin = self.admin()
+
+        # only coordinators can issue links
+        self.assertEqual(alum.post(f"/api/admin/users/{uid}/reset-link").status_code, 403)
+        first = admin.post(f"/api/admin/users/{uid}/reset-link").get_json()["path"].split("token=")[1]
+        token = admin.post(f"/api/admin/users/{uid}/reset-link").get_json()["path"].split("token=")[1]
+
+        # the token itself is never stored, only its hash
+        conn = sqlite3.connect(self.app.config["DATABASE"])
+        stored = [row[0] for row in conn.execute("SELECT token_hash FROM password_resets")]
+        conn.close()
+        self.assertEqual(len(stored), 1)  # issuing a new link replaced the first one
+        self.assertNotIn(token, stored)
+
+        visitor = ApiClient(self.app)
+        self.assertEqual(visitor.get(f"/api/auth/reset-password?token={first}").status_code, 404)
+        self.assertEqual(visitor.get(f"/api/auth/reset-password?token={token}").get_json()["name"], "Ravi")
+        weak = visitor.post("/api/auth/reset-password", {"token": token, "new_password": "short"})
+        self.assertIn("at least 8", weak.get_json()["error"])
+        ok = visitor.post("/api/auth/reset-password", {"token": token, "new_password": "BrandNew123"})
+        self.assertEqual(ok.status_code, 200)
+
+        # single use, and the new password works while the old one doesn't
+        again = visitor.post("/api/auth/reset-password", {"token": token, "new_password": "Another123"})
+        self.assertEqual(again.status_code, 404)
+        self.assertEqual(visitor.post("/api/auth/login", {"email": "ravi@test.local", "password": TEST_PW}).status_code, 401)
+        self.assertEqual(visitor.post("/api/auth/login", {"email": "ravi@test.local", "password": "BrandNew123"}).status_code, 200)
+
+    def test_password_reset_link_expires(self):
+        _, r = self.signup()
+        uid = r.get_json()["user"]["id"]
+        token = self.admin().post(f"/api/admin/users/{uid}/reset-link").get_json()["path"].split("token=")[1]
+        conn = sqlite3.connect(self.app.config["DATABASE"])
+        conn.execute("UPDATE password_resets SET expires_at = datetime('now', '-1 minute')")
+        conn.commit()
+        conn.close()
+        r = ApiClient(self.app).post("/api/auth/reset-password", {"token": token, "new_password": "BrandNew123"})
+        self.assertEqual(r.status_code, 404)
+        self.assertIn("expired", r.get_json()["error"])
+
     def test_logout(self):
         a = self.admin()
         self.assertIsNotNone(a.get("/api/me").get_json()["user"])

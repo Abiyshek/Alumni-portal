@@ -55,7 +55,7 @@ function LoginForm() {
         <Check name="remember" checked={v.remember} onChange={set}>Keep me signed in for 7 days</Check>
         <button className="btn lg block" disabled={busy} style={{ marginTop: 12 }}>{busy ? "Signing in…" : "Sign in"}</button>
         <p className="small faint center" style={{ marginTop: 16, marginBottom: 0 }}>
-          Forgot your password? Ask the alumni coordinator at school to reset it.
+          Forgot your password? Ask the alumni coordinator for a reset link.
         </p>
       </form>
       <p className="center muted" style={{ marginTop: 20 }}>New here? <Link href="/signup">Register as alumni</Link></p>

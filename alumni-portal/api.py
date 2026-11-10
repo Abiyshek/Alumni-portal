@@ -1,6 +1,8 @@
 """JSON API used by the Next.js frontend (web/). Auth is the same Flask session cookie as the HTML pages."""
 
+import hashlib
 import os
+import secrets
 import time
 from datetime import datetime
 from functools import wraps
@@ -486,4 +488,55 @@ def admin_user_action(uid, action):
         execute(f"UPDATE users SET {col}=? WHERE id=?", (val, uid))
     else:
         abort(404)
+    return jsonify(ok=True)
+
+
+# ---------------------------------------------------------------- password reset (coordinator-issued links)
+
+RESET_HOURS = 24
+
+
+def _reset_row(token):
+    token_hash = hashlib.sha256(str(token or "").encode()).hexdigest()
+    return query("""SELECT r.*, u.name, u.status FROM password_resets r JOIN users u ON u.id=r.user_id
+                    WHERE r.token_hash=? AND r.expires_at > datetime('now')""", (token_hash,), one=True)
+
+
+@bp.post("/admin/users/<int:uid>/reset-link")
+@api_admin_required
+def create_reset_link(uid):
+    target = query("SELECT * FROM users WHERE id=?", (uid,), one=True)
+    if not target:
+        abort(404)
+    token = secrets.token_urlsafe(32)
+    execute("DELETE FROM password_resets WHERE user_id=?", (uid,))  # only the newest link works
+    execute("""INSERT INTO password_resets (token_hash, user_id, created_by, expires_at)
+               VALUES (?, ?, ?, datetime('now', ?))""",
+            (hashlib.sha256(token.encode()).hexdigest(), uid, g.user["id"], f"+{RESET_HOURS} hours"))
+    return jsonify(path=f"/reset-password?token={token}", hours=RESET_HOURS, name=target["name"])
+
+
+@bp.get("/auth/reset-password")
+def check_reset_link():
+    row = _reset_row(request.args.get("token"))
+    if not row:
+        return fail("This reset link is invalid or has expired. Ask the alumni coordinator for a new one.", 404)
+    return jsonify(name=row["name"].split()[0], expires_at=row["expires_at"])
+
+
+@bp.post("/auth/reset-password")
+def reset_password():
+    data = body()
+    row = _reset_row(data.get("token"))
+    if not row:
+        return fail("This reset link is invalid or has expired. Ask the alumni coordinator for a new one.", 404)
+    new = str(data.get("new_password") or "")
+    error = validate_password(new)
+    if error:
+        return fail(error)
+    execute("UPDATE users SET password_hash=? WHERE id=?", (generate_password_hash(new), row["user_id"]))
+    execute("DELETE FROM password_resets WHERE user_id=?", (row["user_id"],))  # links are single-use
+    user = query("SELECT email FROM users WHERE id=?", (row["user_id"],), one=True)
+    for key in [k for k in _failed_logins if k.endswith("|" + user["email"])]:
+        _failed_logins.pop(key, None)  # a fresh password shouldn't stay locked out
     return jsonify(ok=True)

@@ -75,3 +75,13 @@ CREATE TABLE IF NOT EXISTS memories (
     body        TEXT NOT NULL,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- One-time password reset links, made by a coordinator and shared with the alum.
+-- Only a SHA-256 hash of the token is stored, so a copy of the database can't be used to reset passwords.
+CREATE TABLE IF NOT EXISTS password_resets (
+    token_hash  TEXT PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    expires_at  TEXT NOT NULL,                    -- UTC 'YYYY-MM-DD HH:MM:SS'
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Icon from "./Icon";
 import { fmtDay, fmtMonth, initials } from "@/lib/format";
 
@@ -49,6 +50,8 @@ export function Field({ label, name, value, onChange, type = "text", required, h
     );
   } else if (rows) {
     control = <textarea rows={rows} {...common} />;
+  } else if (type === "password") {
+    control = <PasswordInput {...common} />;
   } else {
     control = <input type={type} {...common} />;
   }
@@ -58,6 +61,19 @@ export function Field({ label, name, value, onChange, type = "text", required, h
       {control}
       {hint && <small>{hint}</small>}
     </label>
+  );
+}
+
+export function PasswordInput(props) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <span className="password-input">
+      <input type={visible ? "text" : "password"} {...props} />
+      <button type="button" onClick={() => setVisible((v) => !v)} aria-pressed={visible}
+        aria-label={visible ? "Hide password" : "Show password"} title={visible ? "Hide password" : "Show password"}>
+        <Icon name={visible ? "eyeOff" : "eye"} size={18} />
+      </button>
+    </span>
   );
 }
 
