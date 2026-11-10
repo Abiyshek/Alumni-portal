@@ -17,7 +17,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 import db
 from core import (CLASSES, EMAIL_RE, JOB_TYPES, SCHOOL, STREAMS, _failed_logins, csrf_token, is_locked,
                   profile_fields_from, safe_next, safe_url, save_photo, validate_password, validate_profile)
-from db import execute, query
+from db import execute, query, requires_approval
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
@@ -153,6 +153,7 @@ def register_routes(app):
             "user": current_user(),
             "csrf_token": csrf_token(),
             "pending_count": pending_count,
+            "require_approval": requires_approval(),
             "now_year": datetime.now().year,
         }
 
@@ -209,7 +210,7 @@ def register_routes(app):
             if error:
                 flash(error, "error")
             else:
-                status = "pending" if app.config["REQUIRE_APPROVAL"] else "approved"
+                status = "pending" if requires_approval() else "approved"
                 uid = execute(
                     """INSERT INTO users (name, email, password_hash, phone, batch_year, last_class,
                         stream, house, admission_no, city, country, occupation, organization,

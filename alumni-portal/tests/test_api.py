@@ -192,6 +192,31 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(r.status_code, 404)
         self.assertIn("expired", r.get_json()["error"])
 
+    def test_auto_approve_switch(self):
+        waiting, r = self.signup("first@test.local", "First Person")
+        self.assertEqual(r.get_json()["user"]["status"], "pending")
+        admin = self.admin()
+        self.assertFalse(admin.get("/api/admin").get_json()["settings"]["auto_approve"])
+
+        # only coordinators can flip the switch or bulk-approve
+        self.assertEqual(waiting.post("/api/admin/settings", {"auto_approve": True}).status_code, 403)
+        self.assertEqual(waiting.post("/api/admin/approve-pending").status_code, 403)
+
+        admin.post("/api/admin/settings", {"auto_approve": True})
+        self.assertTrue(admin.get("/api/admin").get_json()["settings"]["auto_approve"])
+        self.assertFalse(ApiClient(self.app).get("/api/me").get_json()["require_approval"])
+        _, r = self.signup("second@test.local", "Second Person")
+        self.assertEqual(r.get_json()["user"]["status"], "approved")
+
+        # people who registered before the switch are still pending until approved in bulk
+        self.assertEqual(waiting.get("/api/directory").status_code, 403)
+        self.assertEqual(admin.post("/api/admin/approve-pending").get_json()["approved"], 1)
+        self.assertEqual(waiting.get("/api/directory").status_code, 200)
+
+        admin.post("/api/admin/settings", {"auto_approve": False})
+        _, r = self.signup("third@test.local", "Third Person")
+        self.assertEqual(r.get_json()["user"]["status"], "pending")
+
     def test_logout(self):
         a = self.admin()
         self.assertIsNotNone(a.get("/api/me").get_json()["user"])

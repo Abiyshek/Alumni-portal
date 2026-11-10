@@ -31,6 +31,29 @@ function Admin() {
     }
   }
 
+  async function setAutoApprove(on) {
+    try {
+      await api("/admin/settings", { method: "POST", body: { auto_approve: on } });
+      toast(on ? "New registrations are now approved automatically." : "New registrations will wait for approval again.");
+      reload();
+    } catch (e) {
+      toast(e.message, "error");
+    }
+  }
+
+  async function approveAllPending() {
+    const n = data?.counts?.pending || 0;
+    if (!confirm(`Approve all ${n} pending registration${n === 1 ? "" : "s"}? They'll get full access to the directory.`)) return;
+    try {
+      const r = await api("/admin/approve-pending", { method: "POST" });
+      toast(`Approved ${r.approved} registration${r.approved === 1 ? "" : "s"}.`);
+      reload();
+      refresh();
+    } catch (e) {
+      toast(e.message, "error");
+    }
+  }
+
   const [resetLinks, setResetLinks] = useState({});
 
   async function makeResetLink(u) {
@@ -74,6 +97,28 @@ function Admin() {
       </div>
 
       <ErrorBox error={error} onRetry={reload} />
+
+      {data && (
+        <section className="glass card setting-row">
+          <div className="grow">
+            <h2>Approve new registrations automatically</h2>
+            <p className="muted small" style={{ margin: 0 }}>
+              {data.settings.auto_approve
+                ? "On: new alumni get full access as soon as they register. Turn it off if you see signups from people who didn't study here."
+                : "Off: new registrations wait in Pending until a coordinator approves them."}
+            </p>
+          </div>
+          <div className="row">
+            {counts.pending > 0 && (
+              <button className="btn sm outline" onClick={approveAllPending}>Approve all pending ({counts.pending})</button>
+            )}
+            <button className={`switch${data.settings.auto_approve ? " on" : ""}`} role="switch" aria-checked={data.settings.auto_approve}
+              aria-label="Approve new registrations automatically" onClick={() => setAutoApprove(!data.settings.auto_approve)}>
+              <i />
+            </button>
+          </div>
+        </section>
+      )}
 
       <div>
         <section className="glass card">

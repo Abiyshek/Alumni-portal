@@ -85,3 +85,9 @@ CREATE TABLE IF NOT EXISTS password_resets (
     expires_at  TEXT NOT NULL,                    -- UTC 'YYYY-MM-DD HH:MM:SS'
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Portal settings a coordinator can change from the Admin panel (key/value).
+CREATE TABLE IF NOT EXISTS settings (
+    key    TEXT PRIMARY KEY,
+    value  TEXT NOT NULL
+);
