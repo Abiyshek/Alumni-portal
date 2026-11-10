@@ -72,6 +72,18 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(r.status_code, 400)
         self.assertIn("error", r.get_json())
 
+    def test_parallel_first_visit_keeps_token_valid(self):
+        # A browser's first visit fetches /api/me and /api/home in parallel, with no cookie yet.
+        # Only /api/me may start a session; otherwise the browser can keep /api/home's cookie
+        # while the page holds /api/me's token, and every form then fails the CSRF check.
+        me_client, home_client = self.app.test_client(), self.app.test_client()
+        token = me_client.get("/api/me").get_json()["csrf"]
+        home = home_client.get("/api/home")
+        self.assertNotIn("session=", home.headers.get("Set-Cookie", ""))
+        r = me_client.post("/api/auth/login", json={"email": "admin@test.local", "password": TEST_PW},
+                           headers={"X-CSRF-Token": token})
+        self.assertEqual(r.status_code, 200)
+
     def test_auth_errors_are_json(self):
         c = ApiClient(self.app)
         self.assertEqual(c.get("/api/dashboard").status_code, 401)

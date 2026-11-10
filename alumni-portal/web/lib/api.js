@@ -9,7 +9,20 @@ export function setCsrf(token) {
   if (token) csrfToken = token;
 }
 
-export async function api(path, { method = "GET", body, form } = {}) {
+export async function api(path, options = {}) {
+  try {
+    return await request(path, options);
+  } catch (err) {
+    // A stale token (e.g. a tab left open while the session changed): get a fresh one and retry once.
+    if (err.status === 400 && err.csrfRejected && path !== "/me") {
+      await request("/me");
+      return request(path, options);
+    }
+    throw err;
+  }
+}
+
+async function request(path, { method = "GET", body, form } = {}) {
   const headers = {};
   let payload;
   if (method !== "GET") headers["X-CSRF-Token"] = csrfToken;
@@ -28,7 +41,10 @@ export async function api(path, { method = "GET", body, form } = {}) {
   const data = await res.json().catch(() => ({}));
   setCsrf(data.csrf);
   if (!res.ok) {
-    throw Object.assign(new Error(data.error || "Something went wrong. Please try again."), { status: res.status });
+    throw Object.assign(new Error(data.error || "Something went wrong. Please try again."), {
+      status: res.status,
+      csrfRejected: res.status === 400 && /form token/i.test(data.error || ""),
+    });
   }
   return data;
 }

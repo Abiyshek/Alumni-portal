@@ -8,7 +8,7 @@ from functools import wraps
 from flask import Blueprint, abort, current_app, g, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from core import (CLASSES, EMAIL_RE, JOB_TYPES, PUBLIC_USER_FIELDS, SCHOOL, STREAMS, _failed_logins,
+from core import (CLASSES, EMAIL_RE, JOB_TYPES, PUBLIC_USER_FIELDS, SCHOOL, STREAMS, _failed_logins, csrf_token,
                   is_locked, profile_fields_from, safe_url, save_photo, validate_password, validate_profile)
 from db import execute, query
 
@@ -81,7 +81,7 @@ def me():
     user = user_json(g.user, private=True) if g.user else None
     if user and user["role"] == "admin":
         user["pending_count"] = query("SELECT COUNT(*) c FROM users WHERE status='pending'", one=True)["c"]
-    return jsonify(user=user, csrf=session["csrf"],
+    return jsonify(user=user, csrf=csrf_token(),
                    school=SCHOOL, options={"streams": STREAMS, "classes": CLASSES, "job_types": JOB_TYPES},
                    require_approval=current_app.config["REQUIRE_APPROVAL"])
 
