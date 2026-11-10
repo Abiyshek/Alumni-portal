@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { KvLogo } from "@/components/Brand";
 import { useAuth, useToast } from "@/components/Providers";
-import { Check, Field } from "@/components/ui";
+import { Field } from "@/components/ui";
 import { api } from "@/lib/api";
 import { firstName } from "@/lib/format";
 
@@ -14,7 +14,7 @@ function LoginForm() {
   const toast = useToast();
   const router = useRouter();
   const params = useSearchParams();
-  const [v, setV] = useState({ email: "", password: "", remember: false });
+  const [v, setV] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const set = (k, val) => setV((s) => ({ ...s, [k]: val }));
@@ -52,7 +52,7 @@ function LoginForm() {
         {error && <div className="form-error" role="alert">{error}</div>}
         <Field label="Email" name="email" type="email" required autoFocus autoComplete="email" value={v.email} onChange={set} />
         <Field label="Password" name="password" type="password" required autoComplete="current-password" value={v.password} onChange={set} />
-        <Check name="remember" checked={v.remember} onChange={set}>Keep me signed in for 7 days</Check>
+        <p className="small faint" style={{ margin: "0 0 4px" }}>You&apos;ll stay signed in on this device. On a shared computer, sign out from the menu when you&apos;re done.</p>
         <button className="btn lg block" disabled={busy} style={{ marginTop: 12 }}>{busy ? "Signing in…" : "Sign in"}</button>
         <p className="small faint center" style={{ marginTop: 16, marginBottom: 0 }}>
           Forgot your password? Ask the alumni coordinator for a reset link.

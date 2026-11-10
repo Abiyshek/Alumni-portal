@@ -11,6 +11,27 @@ const ToastContext = createContext(() => {});
 export const useAuth = () => useContext(AuthContext);
 export const useToast = () => useContext(ToastContext);
 
+// The last known sign-in is cached in the browser so pages render instantly on the next visit.
+// The server stays the source of truth: /api/me re-checks it on every page load and clears a stale cache.
+const CACHE_KEY = "kv2-alumni-session";
+
+function readCache() {
+  try {
+    return JSON.parse(localStorage.getItem(CACHE_KEY)) || null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(snapshot) {
+  try {
+    if (snapshot?.user) localStorage.setItem(CACHE_KEY, JSON.stringify(snapshot));
+    else localStorage.removeItem(CACHE_KEY);
+  } catch {
+    // private mode or storage blocked: the site still works, just without the instant start
+  }
+}
+
 export default function Providers({ children }) {
   const [auth, setAuth] = useState({ user: null, school: null, options: null, loading: true, offline: false });
   const [toasts, setToasts] = useState([]);
@@ -19,7 +40,9 @@ export default function Providers({ children }) {
     try {
       const me = await api("/me");
       setCsrf(me.csrf);
-      setAuth({ user: me.user, school: me.school, options: me.options, requireApproval: me.require_approval, loading: false, offline: false });
+      const snapshot = { user: me.user, school: me.school, options: me.options, requireApproval: me.require_approval };
+      writeCache(snapshot);
+      setAuth({ ...snapshot, loading: false, offline: false });
       return me.user;
     } catch {
       setAuth((a) => ({ ...a, loading: false, offline: true }));
@@ -28,10 +51,15 @@ export default function Providers({ children }) {
   }, []);
 
   useEffect(() => {
+    const cached = readCache();
+    if (cached) setAuth({ ...cached, loading: false, offline: false });
     refresh();
   }, [refresh]);
 
-  const setUser = useCallback((user) => setAuth((a) => ({ ...a, user })), []);
+  const setUser = useCallback((user) => setAuth((a) => {
+    writeCache({ user, school: a.school, options: a.options, requireApproval: a.requireApproval });
+    return { ...a, user };
+  }), []);
 
   const toast = useCallback((message, type = "success") => {
     const id = Math.random().toString(36).slice(2);

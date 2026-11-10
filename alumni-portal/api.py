@@ -147,7 +147,7 @@ def login():
     session.clear()
     session["uid"] = user["id"]
     session["csrf"] = os.urandom(24).hex()
-    session.permanent = bool(data.get("remember"))
+    session.permanent = True
     execute("UPDATE users SET last_login = datetime('now') WHERE id = ?", (user["id"],))
     return jsonify(user=user_json(user, private=True), csrf=session["csrf"])
 

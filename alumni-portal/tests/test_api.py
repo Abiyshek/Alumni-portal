@@ -268,6 +268,27 @@ class ApiTest(unittest.TestCase):
         self.assertIn("image", cols)
         self.assertEqual(kept, "kept after upgrade")
 
+    def test_sign_in_lasts_30_days_and_renews(self):
+        from datetime import datetime, timedelta, timezone
+        from email.utils import parsedate_to_datetime
+
+        def expiry(resp):
+            cookie = next(h for h in resp.headers.getlist("Set-Cookie") if h.startswith("session="))
+            exp = next((p.split("=", 1)[1] for p in cookie.split("; ") if p.lower().startswith("expires=")), None)
+            return parsedate_to_datetime(exp) - datetime.now(timezone.utc) if exp else None
+
+        c = ApiClient(self.app)
+        r = c.post("/api/auth/login", {"email": "admin@test.local", "password": TEST_PW})  # no "remember" needed
+        self.assertGreater(expiry(r), timedelta(days=29))
+        self.assertGreater(expiry(c.get("/api/me")), timedelta(days=29))  # renewed on each visit
+
+        # someone signed in before this change has a browser-session cookie; their next visit upgrades it
+        old = self.app.test_client()
+        with old.session_transaction() as s:
+            s["uid"] = 1
+            s["csrf"] = "x"
+        self.assertGreater(expiry(old.get("/api/me")), timedelta(days=29))
+
     def test_logout(self):
         a = self.admin()
         self.assertIsNotNone(a.get("/api/me").get_json()["user"])
