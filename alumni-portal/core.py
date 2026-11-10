@@ -2,6 +2,7 @@
 
 import os
 import re
+import secrets
 import time
 import uuid
 from collections import defaultdict
@@ -28,6 +29,19 @@ MAX_FAILURES, LOCK_WINDOW = 5, 10 * 60
 PUBLIC_USER_FIELDS = ("id", "name", "batch_year", "last_class", "stream", "house", "city", "country",
                       "occupation", "organization", "industry", "linkedin", "bio", "photo",
                       "willing_to_mentor", "role")
+
+
+def csrf_token():
+    """The session's CSRF token, created on first use.
+
+    Only requests that hand a token out (HTML forms, /api/me) create one. If every request did, two parallel
+    first-visit requests would each start a session, and the browser could keep one session's cookie while
+    the page holds the other's token.
+    """
+    from flask import session  # local import: core stays importable without an app context
+    if "csrf" not in session:
+        session["csrf"] = secrets.token_urlsafe(32)
+    return session["csrf"]
 
 
 def safe_next(target):

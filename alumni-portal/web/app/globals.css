@@ -424,3 +424,13 @@ tr:last-child td { border-bottom: 0; }
 
 /* the landing page ends on a full-bleed band, so it sits flush against the footer */
 .main:has(> .home) { padding-bottom: 0; }
+
+/* password field with show/hide toggle */
+.password-input { position: relative; display: block; }
+.password-input input { padding-right: 48px; }
+.password-input button { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 40px; height: 36px; display: grid; place-items: center; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-3); cursor: pointer; }
+.password-input button:hover { color: var(--blue-700); background: var(--surface-2); }
+
+/* one-time reset link shown to the coordinator */
+.reset-link { display: flex; gap: 8px; align-items: center; margin-top: 8px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--yellow-100); border: 1px solid #f6dc8c; font-size: 0.82rem; }
+.reset-link code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--blue-900); }

@@ -15,7 +15,7 @@ from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, r
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import db
-from core import (CLASSES, EMAIL_RE, JOB_TYPES, SCHOOL, STREAMS, _failed_logins, is_locked,
+from core import (CLASSES, EMAIL_RE, JOB_TYPES, SCHOOL, STREAMS, _failed_logins, csrf_token, is_locked,
                   profile_fields_from, safe_next, safe_url, save_photo, validate_password, validate_profile)
 from db import execute, query
 
@@ -129,12 +129,11 @@ def register_routes(app):
                 session.clear()
             else:
                 g.user = user
-        if "csrf" not in session:
-            session["csrf"] = secrets.token_urlsafe(32)
         if request.method in ("POST", "PUT", "PATCH", "DELETE"):
             # HTML forms send csrf_token; the React frontend sends the X-CSRF-Token header
             token = request.headers.get("X-CSRF-Token") or request.form.get("csrf_token", "")
-            if not secrets.compare_digest(token, session["csrf"]):
+            expected = session.get("csrf")
+            if not expected or not secrets.compare_digest(token, expected):
                 abort(400, "Invalid or missing form token. Please reload the page and try again.")
 
     @app.after_request
@@ -152,7 +151,7 @@ def register_routes(app):
         return {
             "school": SCHOOL,
             "user": current_user(),
-            "csrf_token": session.get("csrf", ""),
+            "csrf_token": csrf_token(),
             "pending_count": pending_count,
             "now_year": datetime.now().year,
         }
