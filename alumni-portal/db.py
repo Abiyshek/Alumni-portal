@@ -38,3 +38,11 @@ def execute(sql, args=()):
     cur = db.execute(sql, args)
     db.commit()
     return cur.lastrowid
+
+
+def requires_approval():
+    """Whether new signups wait for a coordinator. The Admin panel switch wins over REQUIRE_APPROVAL."""
+    row = query("SELECT value FROM settings WHERE key='auto_approve'", one=True)
+    if row is None:
+        return current_app.config["REQUIRE_APPROVAL"]
+    return row["value"] != "1"

@@ -12,7 +12,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from core import (CLASSES, EMAIL_RE, JOB_TYPES, PUBLIC_USER_FIELDS, SCHOOL, STREAMS, _failed_logins, csrf_token,
                   is_locked, profile_fields_from, safe_url, save_photo, validate_password, validate_profile)
-from db import execute, query
+from db import execute, query, requires_approval
 
 bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -85,7 +85,7 @@ def me():
         user["pending_count"] = query("SELECT COUNT(*) c FROM users WHERE status='pending'", one=True)["c"]
     return jsonify(user=user, csrf=csrf_token(),
                    school=SCHOOL, options={"streams": STREAMS, "classes": CLASSES, "job_types": JOB_TYPES},
-                   require_approval=current_app.config["REQUIRE_APPROVAL"])
+                   require_approval=requires_approval())
 
 
 @bp.post("/auth/signup")
@@ -107,7 +107,7 @@ def signup():
         error = "An account with this email already exists. Sign in instead."
     if error:
         return fail(error)
-    status = "pending" if current_app.config["REQUIRE_APPROVAL"] else "approved"
+    status = "pending" if requires_approval() else "approved"
     uid = execute(
         """INSERT INTO users (name, email, password_hash, phone, batch_year, last_class, stream, house,
             admission_no, city, country, occupation, organization, industry, linkedin, bio,
@@ -465,7 +465,28 @@ def admin():
         "memories": query("SELECT COUNT(*) c FROM memories", one=True)["c"],
     }
     users_out = [{**user_json(u, private=True), "created_at": u["created_at"]} for u in users]
-    return jsonify(users=users_out, counts=counts, by_batch=by_batch, totals=totals)
+    return jsonify(users=users_out, counts=counts, by_batch=by_batch, totals=totals,
+                   settings={"auto_approve": not requires_approval()})
+
+
+@bp.post("/admin/settings")
+@api_admin_required
+def update_settings():
+    data = body()
+    if "auto_approve" not in data:
+        return fail("Nothing to change.")
+    value = "1" if data["auto_approve"] in (True, 1, "1", "true") else "0"
+    execute("INSERT INTO settings (key, value) VALUES ('auto_approve', ?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (value,))
+    return jsonify(settings={"auto_approve": value == "1"})
+
+
+@bp.post("/admin/approve-pending")
+@api_admin_required
+def approve_all_pending():
+    count = query("SELECT COUNT(*) c FROM users WHERE status='pending'", one=True)["c"]
+    execute("UPDATE users SET status='approved' WHERE status='pending'")
+    return jsonify(approved=count)
 
 
 @bp.post("/admin/users/<int:uid>/<action>")
