@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS users (
     photo            TEXT,
     willing_to_mentor INTEGER NOT NULL DEFAULT 0,
     show_contact     INTEGER NOT NULL DEFAULT 0,
+    notify_email     INTEGER NOT NULL DEFAULT 1,    -- email me about new news, jobs and events
+    notif_seen_at    TEXT,                          -- when they last opened the notification bell
     role             TEXT    NOT NULL DEFAULT 'alumni' CHECK (role IN ('alumni', 'admin')),
     status           TEXT    NOT NULL DEFAULT 'pending'
                      CHECK (status IN ('pending', 'approved', 'rejected', 'suspended')),
@@ -91,4 +93,13 @@ CREATE TABLE IF NOT EXISTS password_resets (
 CREATE TABLE IF NOT EXISTS settings (
     key    TEXT PRIMARY KEY,
     value  TEXT NOT NULL
+);
+
+-- Browser/phone push subscriptions (Web Push). One person can have several devices.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    endpoint    TEXT PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    p256dh      TEXT NOT NULL,
+    auth        TEXT NOT NULL,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );

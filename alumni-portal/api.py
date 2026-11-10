@@ -13,6 +13,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from core import (CLASSES, EMAIL_RE, JOB_TYPES, PUBLIC_USER_FIELDS, SCHOOL, STREAMS, _failed_logins, csrf_token,
                   is_locked, profile_fields_from, safe_url, save_photo, validate_password, validate_profile)
 from db import execute, query, requires_approval
+from notify import notify_new_post, user_from_unsubscribe_token, vapid_keys, smtp_settings
 
 bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -39,7 +40,8 @@ def user_json(row, private=False):
     if can_see_contact:
         data.update(email=row["email"], phone=row["phone"])
     if private:
-        data.update(status=row["status"], show_contact=row["show_contact"], admission_no=row["admission_no"])
+        data.update(status=row["status"], show_contact=row["show_contact"], admission_no=row["admission_no"],
+                    notify_email=row["notify_email"])
     return data
 
 
@@ -304,6 +306,8 @@ def create_event():
         return fail("Pick a valid date and time.")
     eid = execute("INSERT INTO events (title, description, location, starts_at, created_by) VALUES (?,?,?,?,?)",
                   (v["title"], v["description"], v["location"], v["starts_at"][:16], g.user["id"]))
+    when = v["starts_at"].replace("T", " ")
+    notify_new_post("event", v["title"], f"{v['location']} · {when}\n{v['description']}", f"/events/{eid}", g.user["id"])
     return jsonify(id=eid), 201
 
 
@@ -370,6 +374,9 @@ def create_job():
     jid = execute("""INSERT INTO jobs (title, company, location, job_type, description, apply_link, posted_by)
                      VALUES (?,?,?,?,?,?,?)""",
                   (v["title"], v["company"], v["location"], v["job_type"], v["description"], v["apply_link"], g.user["id"]))
+    where = f" · {v['location']}" if v["location"] else ""
+    notify_new_post("job", f"{v['title']} at {v['company']}", f"{v['job_type']}{where}\n{v['description']}", "/jobs",
+                    g.user["id"])
     return jsonify(id=jid), 201
 
 
@@ -402,6 +409,7 @@ def create_news():
     if not (title and text):
         return fail("Add a title and a message.")
     nid = execute("INSERT INTO announcements (title, body, posted_by) VALUES (?,?,?)", (title, text, g.user["id"]))
+    notify_new_post("news", title, text, "/news", g.user["id"])
     return jsonify(id=nid), 201
 
 
@@ -572,4 +580,78 @@ def reset_password():
     user = query("SELECT email FROM users WHERE id=?", (row["user_id"],), one=True)
     for key in [k for k in _failed_logins if k.endswith("|" + user["email"])]:
         _failed_logins.pop(key, None)  # a fresh password shouldn't stay locked out
+    return jsonify(ok=True)
+
+
+# ---------------------------------------------------------------- notifications (bell, push, email settings)
+
+FEED_SQL = """
+    SELECT 'news' kind, id, title, created_at, posted_by actor FROM announcements
+    UNION ALL SELECT 'job', id, title || ' at ' || company, created_at, posted_by FROM jobs WHERE is_open=1
+    UNION ALL SELECT 'event', id, title, created_at, created_by FROM events
+"""
+FEED_PATHS = {"news": lambda i: "/news", "job": lambda i: "/jobs", "event": lambda i: f"/events/{i}"}
+
+
+@bp.get("/notifications")
+@api_approved_required
+def notifications():
+    u = g.user
+    seen = u["notif_seen_at"] or u["created_at"]
+    items = rows(query(f"SELECT * FROM ({FEED_SQL}) WHERE actor IS NOT ? ORDER BY created_at DESC, id DESC LIMIT 15",
+                       (u["id"],)))
+    for it in items:
+        it["path"] = FEED_PATHS[it["kind"]](it["id"])
+        it["unread"] = it["created_at"] > seen
+        del it["actor"]
+    unread = query(f"SELECT COUNT(*) c FROM ({FEED_SQL}) WHERE actor IS NOT ? AND created_at > ?", (u["id"], seen),
+                   one=True)["c"]
+    keys = vapid_keys()
+    return jsonify(items=items, unread=unread, push_public_key=keys[1] if keys else None,
+                   email_available=smtp_settings() is not None, notify_email=bool(u["notify_email"]))
+
+
+@bp.post("/notifications/seen")
+@api_approved_required
+def notifications_seen():
+    execute("UPDATE users SET notif_seen_at = datetime('now') WHERE id=?", (g.user["id"],))
+    return jsonify(ok=True)
+
+
+@bp.put("/notifications/settings")
+@api_login_required
+def notification_settings():
+    on = body().get("notify_email") in (True, 1, "1", "true")
+    execute("UPDATE users SET notify_email=? WHERE id=?", (1 if on else 0, g.user["id"]))
+    return jsonify(notify_email=on)
+
+
+@bp.post("/notifications/push")
+@api_approved_required
+def push_subscribe():
+    sub = body().get("subscription") or {}
+    endpoint, keys = str(sub.get("endpoint") or ""), sub.get("keys") or {}
+    if not endpoint.startswith("https://") or not keys.get("p256dh") or not keys.get("auth"):
+        return fail("That push subscription isn't valid.")
+    execute("""INSERT INTO push_subscriptions (endpoint, user_id, p256dh, auth) VALUES (?,?,?,?)
+               ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id, p256dh=excluded.p256dh,
+               auth=excluded.auth""", (endpoint, g.user["id"], keys["p256dh"], keys["auth"]))
+    return jsonify(ok=True), 201
+
+
+@bp.delete("/notifications/push")
+@api_login_required
+def push_unsubscribe():
+    execute("DELETE FROM push_subscriptions WHERE endpoint=? AND user_id=?",
+            (str(body().get("endpoint") or ""), g.user["id"]))
+    return jsonify(ok=True)
+
+
+@bp.post("/notifications/unsubscribe")
+def email_unsubscribe():
+    """One-click opt-out from the link in every notification email (no sign-in needed)."""
+    uid = user_from_unsubscribe_token(str(body().get("token") or ""))
+    if not isinstance(uid, int) or not query("SELECT 1 FROM users WHERE id=?", (uid,), one=True):
+        return fail("This unsubscribe link isn't valid.", 404)
+    execute("UPDATE users SET notify_email=0 WHERE id=?", (uid,))
     return jsonify(ok=True)

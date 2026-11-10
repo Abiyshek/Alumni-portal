@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import Icon from "@/components/Icon";
+import ShareWhatsApp from "@/components/ShareWhatsApp";
 import { PageSkeleton, Protected, useAuth, useToast } from "@/components/Providers";
 import { Empty, ErrorBox } from "@/components/ui";
 import { api, useApi } from "@/lib/api";
@@ -52,6 +53,7 @@ function Jobs() {
               Posted by <Link href={`/alumni/${j.posted_by}`}>{j.poster}</Link> (Batch {j.poster_batch}) · {fmt(j.created_at)}
             </span>
             <span className="row">
+              <ShareWhatsApp kind="job" title={`${j.title} at ${j.company}`} details={`${j.job_type}${j.location ? ` · ${j.location}` : ""}`} path="/jobs" />
               {j.apply_link && <a className="btn sm" href={j.apply_link} target="_blank" rel="noopener noreferrer nofollow">Apply <Icon name="external" size={13} /></a>}
               {(j.posted_by === user.id || user.role === "admin") && (
                 <>

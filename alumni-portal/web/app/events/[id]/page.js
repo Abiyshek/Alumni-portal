@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
+import ShareWhatsApp from "@/components/ShareWhatsApp";
 import { PageSkeleton, Protected, useAuth, useToast } from "@/components/Providers";
 import RsvpButton from "@/components/RsvpButton";
 import { Avatar, DateChip, Empty, ErrorBox } from "@/components/ui";
@@ -44,6 +45,7 @@ function EventDetail() {
           <p className="prewrap muted">{e.description}</p>
           <div className="row" style={{ marginTop: 20 }}>
             {is_past ? <span className="tag">This event has ended</span> : <RsvpButton event={e} onChange={reload} size="lg" />}
+            {!is_past && <ShareWhatsApp kind="event" title={e.title} details={`🗓 ${fmtLong(e.starts_at)}, ${fmtTime(e.starts_at)}\n📍 ${e.location}`} path={`/events/${e.id}`} size="lg" />}
             {user.role === "admin" && <button className="btn danger sm" onClick={remove}><Icon name="trash" size={14} /> Delete event</button>}
           </div>
         </article>

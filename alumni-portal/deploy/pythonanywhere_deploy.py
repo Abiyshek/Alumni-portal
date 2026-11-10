@@ -6,6 +6,7 @@ Deploy (or update) the Flask API on PythonAnywhere using its HTTP API, with no b
 The API token is read from the file ~/.pythonanywhere_token (PythonAnywhere: Account -> API Token).
 --with-db  also uploads instance/portal.db (first deploy only: it would overwrite live data later)
 --eu       for accounts on eu.pythonanywhere.com
+--with-smtp also uploads email settings from ~/.alumni_smtp.json (see DEPLOY.md, "Email notifications")
 """
 
 import argparse
@@ -17,7 +18,7 @@ import requests
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.dirname(HERE)
-CODE_FILES = ["app.py", "api.py", "core.py", "db.py", "manage.py", "schema.sql", "requirements.txt"]
+CODE_FILES = ["app.py", "api.py", "core.py", "db.py", "notify.py", "manage.py", "schema.sql", "requirements.txt"]
 CODE_DIRS = ["templates", "static"]
 
 
@@ -26,6 +27,7 @@ def main():
     ap.add_argument("username")
     ap.add_argument("--with-db", action="store_true")
     ap.add_argument("--eu", action="store_true")
+    ap.add_argument("--with-smtp", action="store_true")
     args = ap.parse_args()
 
     token_path = os.path.expanduser("~/.pythonanywhere_token")
@@ -63,6 +65,12 @@ def main():
     for rel in files:
         upload(os.path.join(PROJECT, rel), f"{remote_root}/{rel}")
     print(f"Uploaded {len(files)} files to {remote_root}.")
+    if args.with_smtp:
+        smtp_path = os.path.expanduser("~/.alumni_smtp.json")
+        if not os.path.exists(smtp_path):
+            sys.exit(f"--with-smtp: create {smtp_path} first (see DEPLOY.md).")
+        upload(smtp_path, f"{remote_root}/instance/smtp.json")
+        print("Uploaded email settings.")
 
     apps = check(s.get(f"{base}/webapps/"), "List web apps").json()
     if not any(a["domain_name"] == domain for a in apps):
