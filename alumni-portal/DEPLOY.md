@@ -60,25 +60,22 @@ Parts 1 and 2 can also be done from the command line, with no dashboard clicks.
 
    This uploads the code and your local database, creates and configures the web app, reloads it, and checks `/api/me`.
    Leave out `--with-db` on later updates, because it would overwrite the live database.
-3. For the website, run `vercel login`, then in `web/`:
-
-   ```bash
-   vercel link --yes --project kv2-alumni-portal
-   vercel env add API_URL production
-   vercel deploy --prod
-   ```
+3. For the website, create the Vercel project from GitHub as in Part 2, with **Root Directory** set to `alumni-portal/web`.
+   Don't run `vercel deploy` from inside `web/`: once the root directory is set, Vercel looks for `alumni-portal/web` inside that folder and the deploy fails.
 
 The live portal is at https://kv2-alumni-portal.vercel.app, with its API at https://sheky.pythonanywhere.com.
 
-## Updating the API later
+## Updating the site later
 
-After you merge new changes, open a PythonAnywhere **Bash** console and run:
+- **Website:** merge into `main`. Vercel builds and deploys it automatically, and every pull request also gets a preview build.
+- **API:** from `alumni-portal/` on your computer, run:
 
-```bash
-cd ~/Alumni-portal && git pull
-```
+  ```bash
+  python deploy/pythonanywhere_deploy.py sheky
+  ```
 
-Then click **Reload** on the Web tab. Your database and photos are not touched, because `instance/` is git-ignored.
+  This uploads the new code and reloads the app. Without `--with-db`, your database and photos aren't touched.
+  If you set up the API with `git clone` (Part 1) instead, run `cd ~/Alumni-portal && git pull` in a PythonAnywhere Bash console and click **Reload**.
 
 ## Free-plan limits to know
 
