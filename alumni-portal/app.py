@@ -48,7 +48,9 @@ def create_app(config=None):
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE") == "1",
-        PERMANENT_SESSION_LIFETIME=60 * 60 * 24 * 7,
+        # Stay signed in: the cookie lasts 30 days and is renewed on every visit, so active members never get logged out.
+        PERMANENT_SESSION_LIFETIME=60 * 60 * 24 * 30,
+        SESSION_REFRESH_EACH_REQUEST=True,
     )
     if config:
         app.config.update(config)
@@ -124,6 +126,8 @@ def register_routes(app):
     def load_user_and_check_csrf():
         g.user = None
         uid = session.get("uid")
+        if uid and not session.permanent:
+            session.permanent = True  # upgrade sign-ins made before "stay signed in" existed
         if uid:
             user = query("SELECT * FROM users WHERE id = ?", (uid,), one=True)
             if user and user["status"] in ("suspended", "rejected"):
@@ -251,7 +255,7 @@ def register_routes(app):
                         _failed_logins.pop(key, None)
                         session.clear()
                         session["uid"] = user["id"]
-                        session.permanent = bool(request.form.get("remember"))
+                        session.permanent = True
                         execute("UPDATE users SET last_login = datetime('now') WHERE id = ?", (user["id"],))
                         flash(f"Welcome back, {user['name'].split()[0]}!", "success")
                         return redirect(safe_next(request.args.get("next")) or url_for("dashboard"))
