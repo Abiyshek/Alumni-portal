@@ -26,6 +26,10 @@ def init_db(path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with sqlite3.connect(path) as conn, open(SCHEMA_PATH, encoding="utf-8") as f:
         conn.executescript(f.read())
+        # Columns added after launch: CREATE TABLE IF NOT EXISTS won't add them to an existing database.
+        memory_cols = {row[1] for row in conn.execute("PRAGMA table_info(memories)")}
+        if "image" not in memory_cols:
+            conn.execute("ALTER TABLE memories ADD COLUMN image TEXT")
 
 
 def query(sql, args=(), one=False):

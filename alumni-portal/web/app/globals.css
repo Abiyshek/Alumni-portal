@@ -442,3 +442,14 @@ tr:last-child td { border-bottom: 0; }
 .switch i { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: var(--shadow-1); transition: transform var(--dur-2) var(--ease); }
 .switch.on { background: var(--blue-700); }
 .switch.on i { transform: translateX(22px); }
+
+/* memories with photos */
+.photo-preview { display: flex; gap: 14px; align-items: center; margin: -8px 0 var(--s-4); }
+.photo-preview img { width: 120px; height: 90px; object-fit: cover; border-radius: var(--r-sm); border: 1px solid var(--line); }
+.memory-image { display: block; margin: calc(-1 * var(--s-6)) calc(-1 * var(--s-6)) var(--s-4); }
+.memory-image img { display: block; width: 100%; max-height: 420px; object-fit: cover; border-radius: var(--r-lg) var(--r-lg) 0 0; background: var(--surface-2); }
+.memory.has-image .memory-foot { margin-top: 0; }
+.profile-memory-image { display: block; width: 100%; max-height: 260px; object-fit: cover; border-radius: var(--r-md); margin: 12px 0 4px; }
+@media (max-width: 640px) {
+  .memory-image { margin: calc(-1 * var(--s-5)) calc(-1 * var(--s-5)) var(--s-4); }
+}

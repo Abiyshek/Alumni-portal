@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS memories (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     body        TEXT NOT NULL,
+    image       TEXT,                             -- optional photo, a file name in instance/uploads
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

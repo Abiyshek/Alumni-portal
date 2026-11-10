@@ -45,7 +45,12 @@ function Profile() {
           {memories.length > 0 && (
             <>
               <h3 style={{ marginTop: 24 }}>Memories shared</h3>
-              {memories.map((m) => <blockquote key={m.id}>{m.body}</blockquote>)}
+              {memories.map((m) => (
+                <div key={m.id}>
+                  {m.image_url && <img className="profile-memory-image" src={m.image_url} alt={m.body ? m.body.slice(0, 120) : "Shared photo"} loading="lazy" />}
+                  {m.body && <blockquote>{m.body}</blockquote>}
+                </div>
+              ))}
             </>
           )}
         </section>
