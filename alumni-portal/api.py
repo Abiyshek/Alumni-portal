@@ -232,6 +232,8 @@ def alumni(uid):
     if not person:
         abort(404)
     memories = rows(query("SELECT * FROM memories WHERE user_id=? ORDER BY created_at DESC LIMIT 5", (uid,)))
+    for m in memories:
+        m["image_url"] = f"/uploads/{m['image']}" if m["image"] else None
     jobs = rows(query("SELECT * FROM jobs WHERE posted_by=? AND is_open=1 ORDER BY created_at DESC", (uid,)))
     return jsonify(person=user_json(person), memories=memories, jobs=jobs)
 
@@ -419,16 +421,22 @@ def memories():
                           ORDER BY m.created_at DESC, m.id DESC LIMIT 100"""))
     for m in items:
         m["photo_url"] = f"/uploads/{m['photo']}" if m["photo"] else None
+        m["image_url"] = f"/uploads/{m['image']}" if m["image"] else None
     return jsonify(items=items)
 
 
 @bp.post("/memories")
 @api_approved_required
 def create_memory():
-    text = str(body().get("body") or "").strip()
-    if len(text) < 5:
-        return fail("Write a little more, at least a few words.")
-    mid = execute("INSERT INTO memories (user_id, body) VALUES (?,?)", (g.user["id"], text[:2000]))
+    # JSON for text-only memories; multipart form when a photo is attached
+    source = request.form if request.files else body()
+    text = str(source.get("body") or "").strip()
+    image, error = save_photo(request.files.get("image"), current_app.config["UPLOAD_FOLDER"])
+    if error:
+        return fail(error)
+    if not image and len(text) < 5:
+        return fail("Write a little more, at least a few words, or add a photo.")
+    mid = execute("INSERT INTO memories (user_id, body, image) VALUES (?,?,?)", (g.user["id"], text[:2000], image))
     return jsonify(id=mid), 201
 
 
@@ -441,6 +449,10 @@ def delete_memory(mid):
     if m["user_id"] != g.user["id"] and g.user["role"] != "admin":
         abort(403)
     execute("DELETE FROM memories WHERE id=?", (mid,))
+    if m["image"]:
+        path = os.path.join(current_app.config["UPLOAD_FOLDER"], m["image"])
+        if os.path.exists(path):
+            os.remove(path)
     return jsonify(ok=True)
 
 

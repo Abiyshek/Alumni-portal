@@ -217,6 +217,57 @@ class ApiTest(unittest.TestCase):
         _, r = self.signup("third@test.local", "Third Person")
         self.assertEqual(r.get_json()["user"]["status"], "pending")
 
+    def test_memory_with_photo(self):
+        alum, r = self.signup()
+        admin = self.admin()
+        admin.post(f"/api/admin/users/{r.get_json()['user']['id']}/approve")
+        jpg = b"\xff\xd8\xff\xe0" + b"\x00" * 60
+
+        # a photo with a caption, and a photo with no text at all
+        r = alum.post("/api/memories", data={"body": "Annual Day 2012", "image": (io.BytesIO(jpg), "a.jpg")},
+                      content_type="multipart/form-data")
+        self.assertEqual(r.status_code, 201)
+        r = alum.post("/api/memories", data={"image": (io.BytesIO(jpg), "b.jpg")}, content_type="multipart/form-data")
+        self.assertEqual(r.status_code, 201)
+
+        # text-only memories still need a few words, and non-images are refused
+        self.assertIn("add a photo", alum.post("/api/memories", {"body": "hi"}).get_json()["error"])
+        r = alum.post("/api/memories", data={"body": "Sports day", "image": (io.BytesIO(b"<svg onload=x>"), "x.jpg")},
+                      content_type="multipart/form-data")
+        self.assertIn("valid image", r.get_json()["error"])
+
+        items = alum.get("/api/memories").get_json()["items"]
+        self.assertEqual(len(items), 2)
+        image_url = items[1]["image_url"]
+        self.assertTrue(image_url.startswith("/uploads/") and image_url.endswith(".jpg"))
+        photo = alum.get(image_url)
+        self.assertEqual(photo.status_code, 200)
+        photo.close()
+        self.assertIn("image_url", alum.get(f"/api/alumni/{items[0]['user_id']}").get_json()["memories"][0])
+
+        # deleting the memory deletes its photo file
+        path = os.path.join(self.app.config["UPLOAD_FOLDER"], image_url.rsplit("/", 1)[1])
+        self.assertTrue(os.path.exists(path))
+        alum.send("delete", f"/api/memories/{items[1]['id']}")
+        self.assertFalse(os.path.exists(path))
+
+    def test_existing_database_gets_memory_image_column(self):
+        # databases created before photos existed are upgraded on startup
+        old_db = os.path.join(self.tmp, "old.db")
+        conn = sqlite3.connect(old_db)
+        conn.execute("CREATE TABLE memories (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, body TEXT NOT NULL, "
+                     "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
+        conn.execute("INSERT INTO memories (user_id, body) VALUES (1, 'kept after upgrade')")
+        conn.commit()
+        conn.close()
+        portal.create_app({"TESTING": True, "DATABASE": old_db, "UPLOAD_FOLDER": os.path.join(self.tmp, "up2")})
+        conn = sqlite3.connect(old_db)
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(memories)")}
+        kept = conn.execute("SELECT body FROM memories").fetchone()[0]
+        conn.close()
+        self.assertIn("image", cols)
+        self.assertEqual(kept, "kept after upgrade")
+
     def test_logout(self):
         a = self.admin()
         self.assertIsNotNone(a.get("/api/me").get_json()["user"])

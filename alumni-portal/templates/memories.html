@@ -14,7 +14,8 @@
 <div class="wall">
   {% for m in items %}
     <article class="memory">
-      <p class="prewrap">{{ m.body }}</p>
+      {% if m.image %}<img src="{{ url_for('uploaded_file', filename=m.image) }}" alt="" style="width:100%;border-radius:10px;margin-bottom:8px">{% endif %}
+      {% if m.body %}<p class="prewrap">{{ m.body }}</p>{% endif %}
       <div class="memory-foot">
         <a class="person-line" href="{{ url_for('profile', uid=m.user_id) }}">{{ avatar(m) }}<span>{{ m.name }}<br><small class="muted">Batch {{ m.batch_year }} · {{ m.created_at|datefmt }}</small></span></a>
         {% if m.user_id == user.id or user.role == 'admin' %}
