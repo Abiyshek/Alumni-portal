@@ -18,6 +18,7 @@ import db
 from core import (CLASSES, EMAIL_RE, JOB_TYPES, SCHOOL, STREAMS, _failed_logins, csrf_token, is_locked,
                   profile_fields_from, safe_next, safe_url, save_photo, validate_password, validate_profile)
 from db import execute, query, requires_approval
+from notify import notify_new_post
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
@@ -422,6 +423,9 @@ def register_routes(app):
             else:
                 eid = execute("INSERT INTO events (title, description, location, starts_at, created_by) VALUES (?,?,?,?,?)",
                               (v["title"], v["description"], v["location"], v["starts_at"][:16], current_user()["id"]))
+                when = v["starts_at"].replace("T", " ")
+                notify_new_post("event", v["title"], f"{v['location']} · {when}\n{v['description']}",
+                                f"/events/{eid}", current_user()["id"])
                 flash("Event published.", "success")
                 return redirect(url_for("event_detail", eid=eid))
         return render_template("event_form.html", v=v)
@@ -478,6 +482,8 @@ def register_routes(app):
                            VALUES (?,?,?,?,?,?,?)""",
                         (v["title"], v["company"], v["location"], v["job_type"], v["description"],
                          v["apply_link"], current_user()["id"]))
+                notify_new_post("job", f"{v['title']} at {v['company']}", f"{v['job_type']}\n{v['description']}",
+                                "/jobs", current_user()["id"])
                 flash("Opportunity posted. Thanks for helping fellow alumni!", "success")
                 return redirect(url_for("jobs"))
         return render_template("job_form.html", v=v, job_types=JOB_TYPES)
@@ -519,6 +525,7 @@ def register_routes(app):
             flash("Title and message are required.", "error")
         else:
             execute("INSERT INTO announcements (title, body, posted_by) VALUES (?,?,?)", (title, body, current_user()["id"]))
+            notify_new_post("news", title, body, "/news", current_user()["id"])
             flash("Announcement posted.", "success")
         return redirect(url_for("news"))
 

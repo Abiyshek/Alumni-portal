@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Icon from "@/components/Icon";
+import ShareWhatsApp from "@/components/ShareWhatsApp";
 import { PageSkeleton, Protected, useAuth } from "@/components/Providers";
 import RsvpButton from "@/components/RsvpButton";
 import { DateChip, Empty, ErrorBox } from "@/components/ui";
@@ -33,6 +34,7 @@ function Events() {
             <p className="muted">{e.description.length > 200 ? e.description.slice(0, 200) + "…" : e.description}</p>
             <div className="row">
               <RsvpButton event={e} onChange={reload} />
+              <ShareWhatsApp kind="event" title={e.title} details={`🗓 ${fmtLong(e.starts_at)}, ${fmtTime(e.starts_at)}\n📍 ${e.location}`} path={`/events/${e.id}`} />
               <span className="faint small">{e.going} going</span>
             </div>
           </div>

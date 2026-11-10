@@ -8,6 +8,7 @@ import { firstName } from "@/lib/format";
 import { Brand, PmShriLogo } from "./Brand";
 import Icon from "./Icon";
 import { useAuth, useToast } from "./Providers";
+import NotificationBell from "./NotificationBell";
 import { Avatar } from "./ui";
 
 const MEMBER_LINKS = [
@@ -74,6 +75,7 @@ export default function Nav() {
           </Link>
           <div className="brandbar-right">
             <span className="pmshri"><PmShriLogo /></span>
+            {approved && <NotificationBell />}
             {user ? (
               <div className="dropdown" ref={accountRef}>
                 <button className="dropdown-btn" onClick={() => setAccountOpen((o) => !o)} aria-expanded={accountOpen} aria-haspopup="menu">

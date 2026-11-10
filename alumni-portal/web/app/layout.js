@@ -9,6 +9,7 @@ const body = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swa
 
 export const metadata = {
   title: { default: "Alumni Association · PM SHRI KV No. 2 Pondicherry", template: "%s · KV No. 2 Pondicherry Alumni" },
+  manifest: "/manifest.webmanifest",
   description: "The alumni network of PM SHRI Kendriya Vidyalaya No. 2 Pondicherry, Kalapet. Find classmates, join reunions, share opportunities.",
 };
 

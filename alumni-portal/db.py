@@ -7,6 +7,13 @@ from flask import current_app, g
 
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
 
+# (table, column, definition) for columns added after the first release
+ADDED_COLUMNS = [
+    ("memories", "image", "TEXT"),
+    ("users", "notify_email", "INTEGER NOT NULL DEFAULT 1"),
+    ("users", "notif_seen_at", "TEXT"),
+]
+
 
 def get_db():
     if "db" not in g:
@@ -27,9 +34,10 @@ def init_db(path):
     with sqlite3.connect(path) as conn, open(SCHEMA_PATH, encoding="utf-8") as f:
         conn.executescript(f.read())
         # Columns added after launch: CREATE TABLE IF NOT EXISTS won't add them to an existing database.
-        memory_cols = {row[1] for row in conn.execute("PRAGMA table_info(memories)")}
-        if "image" not in memory_cols:
-            conn.execute("ALTER TABLE memories ADD COLUMN image TEXT")
+        for table, column, definition in ADDED_COLUMNS:
+            existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+            if column not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def query(sql, args=(), one=False):

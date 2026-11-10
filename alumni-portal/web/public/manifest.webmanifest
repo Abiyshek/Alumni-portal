@@ -1,0 +1,13 @@
+{
+  "name": "KV No. 2 Pondicherry Alumni",
+  "short_name": "KV2 Alumni",
+  "description": "Alumni Association of PM SHRI Kendriya Vidyalaya No. 2 Pondicherry",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0d3384",
+  "icons": [
+    { "src": "/brand/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/brand/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -77,10 +77,38 @@ The live portal is at https://kv2-alumni-portal.vercel.app, with its API at http
   This uploads the new code and reloads the app. Without `--with-db`, your database and photos aren't touched.
   If you set up the API with `git clone` (Part 1) instead, run `cd ~/Alumni-portal && git pull` in a PythonAnywhere Bash console and click **Reload**.
 
+## Notifications
+
+When news, a job or an event is posted, members are notified four ways:
+
+| Channel | Setup needed |
+|---|---|
+| 🔔 Bell in the header | None. It always works. |
+| 💬 WhatsApp "Share" button | None. Coordinators tap it and forward the post to the alumni group. |
+| 📲 Phone and browser alerts | None. Members switch them on from the bell. On iPhone, they first add the site to the Home Screen (Share → Add to Home Screen). Keys are created on the server automatically. |
+| 📧 Email | One-time setup below. Until then, members' email choices are saved, but nothing is sent. |
+
+### Email notifications (one-time setup)
+
+1. Use a Gmail account for the alumni association, and turn on **2-Step Verification** for it.
+2. Create an **App Password** at https://myaccount.google.com/apppasswords. Google shows a 16-letter password.
+3. On your computer, create the file `~/.alumni_smtp.json`:
+
+   ```json
+   {"host": "smtp.gmail.com", "port": 587, "user": "your.alumni.account@gmail.com",
+    "password": "the 16-letter app password", "from": "KV2 Alumni <your.alumni.account@gmail.com>"}
+   ```
+
+4. From `alumni-portal/`, run `python deploy/pythonanywhere_deploy.py sheky --with-smtp`.
+
+Every email has a one-click **Stop these emails** link, and members can switch emails on or off from the bell.
+
 ## Free-plan limits to know
 
 - **PythonAnywhere:** you must log in once every **3 months** and click **"Run until 3 months from today"** on the Web tab, or the API is switched off. You get 512 MB of disk and a daily CPU allowance, which is plenty for a school alumni portal.
 - **Vercel Hobby:** for non-commercial use, which an alumni association is.
+- **Gmail:** sends up to about 500 emails a day, which is plenty for an alumni group of a few hundred.
+- **PythonAnywhere free:** outgoing connections are limited to an approved list of sites. Gmail's mail server and the major push services (Google/Chrome, Mozilla/Firefox, Apple) normally work. If a push or email fails, the reason is in the web app's **error log**.
 - **Backups:** download `instance/portal.db` from PythonAnywhere's **Files** tab now and then, to keep a copy.
 
 ## Troubleshooting

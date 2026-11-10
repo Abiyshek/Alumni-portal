@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Icon from "@/components/Icon";
+import ShareWhatsApp from "@/components/ShareWhatsApp";
 import { PageSkeleton, useAuth, useToast } from "@/components/Providers";
 import { Empty, ErrorBox, Field } from "@/components/ui";
 import { api, useApi } from "@/lib/api";
@@ -62,7 +63,10 @@ export default function NewsPage() {
           <p className="prewrap muted">{n.body}</p>
           <div className="between">
             {n.author && <span className="small faint">Posted by {n.author}</span>}
-            {admin && <button className="btn sm danger" onClick={() => remove(n)}><Icon name="trash" size={13} /> Delete</button>}
+            <span className="row">
+              {user?.status === "approved" && <ShareWhatsApp kind="news" title={n.title} details={n.body.length > 200 ? n.body.slice(0, 200) + "…" : n.body} path="/news" />}
+              {admin && <button className="btn sm danger" onClick={() => remove(n)}><Icon name="trash" size={13} /> Delete</button>}
+            </span>
           </div>
         </article>
       )) : <div className="glass card"><Empty icon="megaphone" title="No announcements yet">News from school will appear here.</Empty></div>}
