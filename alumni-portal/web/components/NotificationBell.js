@@ -20,13 +20,24 @@ export default function NotificationBell() {
   const [busy, setBusy] = useState(false);
   const ref = useRef(null);
 
-  const load = useCallback(() => api("/notifications").then(setData).catch(() => {}), []);
+  const lastLoad = useRef(0);
+  const load = useCallback(() => {
+    lastLoad.current = Date.now();
+    return api("/notifications").then(setData).catch(() => {});
+  }, []);
 
+  // Check every 5 minutes, only while the tab is visible, and catch up when the member comes back to it.
+  // With many members online, this keeps the bell from becoming most of the server's traffic.
   useEffect(() => {
     load();
-    const t = setInterval(load, 120000);
-    return () => clearInterval(t);
-  }, [load, path]);
+    const tick = () => document.visibilityState === "visible" && Date.now() - lastLoad.current > 60000 && load();
+    const t = setInterval(tick, 300000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [load]);
 
   useEffect(() => {
     pushState().then(setPush).catch(() => setPush("unsupported"));

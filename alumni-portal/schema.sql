@@ -103,3 +103,14 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     auth        TEXT NOT NULL,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Indexes for the lists every page sorts or filters (newest first, open jobs, upcoming events, RSVPs).
+CREATE INDEX IF NOT EXISTS idx_news_created      ON announcements(created_at);
+CREATE INDEX IF NOT EXISTS idx_events_starts     ON events(starts_at);
+CREATE INDEX IF NOT EXISTS idx_events_created    ON events(created_at);
+CREATE INDEX IF NOT EXISTS idx_jobs_open_created ON jobs(is_open, created_at);
+CREATE INDEX IF NOT EXISTS idx_jobs_poster       ON jobs(posted_by);
+CREATE INDEX IF NOT EXISTS idx_memories_created  ON memories(created_at);
+CREATE INDEX IF NOT EXISTS idx_memories_user     ON memories(user_id);
+CREATE INDEX IF NOT EXISTS idx_rsvps_user        ON rsvps(user_id);
+CREATE INDEX IF NOT EXISTS idx_push_user         ON push_subscriptions(user_id);

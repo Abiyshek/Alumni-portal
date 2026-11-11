@@ -17,7 +17,8 @@ ADDED_COLUMNS = [
 
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(current_app.config["DATABASE"])
+        # Wait up to 30s for another request's write to finish instead of failing with "database is locked".
+        g.db = sqlite3.connect(current_app.config["DATABASE"], timeout=30)
         g.db.row_factory = sqlite3.Row
         g.db.execute("PRAGMA foreign_keys = ON")
     return g.db

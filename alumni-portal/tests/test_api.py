@@ -289,6 +289,23 @@ class ApiTest(unittest.TestCase):
             s["csrf"] = "x"
         self.assertGreater(expiry(old.get("/api/me")), timedelta(days=29))
 
+    def test_cache_headers(self):
+        visitor = self.app.test_client()
+        r = visitor.get("/api/home")
+        self.assertIn("s-maxage=30", r.headers["Cache-Control"])  # Vercel may serve the landing data
+        self.assertNotIn("Set-Cookie", r.headers)                  # never cache anything that sets a cookie
+        admin = self.admin()
+        self.assertEqual(admin.get("/api/home").headers["Cache-Control"], "private, no-cache")
+        self.assertEqual(admin.get("/api/dashboard").headers["Cache-Control"], "private, no-cache")
+
+        png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 40
+        url = admin.post("/api/profile/photo", data={"photo": (io.BytesIO(png), "me.png")},
+                         content_type="multipart/form-data").get_json()["photo_url"]
+        photo = admin.get(url)
+        self.assertIn("immutable", photo.headers["Cache-Control"])
+        self.assertIn("private", photo.headers["Cache-Control"])
+        photo.close()
+
     def test_logout(self):
         a = self.admin()
         self.assertIsNotNone(a.get("/api/me").get_json()["user"])

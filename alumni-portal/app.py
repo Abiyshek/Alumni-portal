@@ -66,6 +66,10 @@ def create_app(config=None):
 
 # ---------------------------------------------------------------- helpers
 
+# Public API reads that are identical for every visitor and may be cached by Vercel's CDN.
+EDGE_CACHED = {"/api/home"}
+
+
 def current_user():
     return g.get("user")
 
@@ -104,20 +108,6 @@ def form(name, default=""):
     return (request.form.get(name) or default).strip()
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ---------------------------------------------------------------- routes
 
 def register_routes(app):
@@ -125,7 +115,10 @@ def register_routes(app):
     @app.before_request
     def load_user_and_check_csrf():
         g.user = None
-        uid = session.get("uid")
+        # Only touch the session when the browser sent one: reading it makes Flask add "Vary: Cookie",
+        # which stops Vercel from caching public responses for signed-out visitors.
+        has_session = app.config["SESSION_COOKIE_NAME"] in request.cookies
+        uid = session.get("uid") if has_session else None
         if uid and not session.permanent:
             session.permanent = True  # upgrade sign-ins made before "stay signed in" existed
         if uid:
@@ -146,6 +139,16 @@ def register_routes(app):
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("X-Frame-Options", "DENY")
         resp.headers.setdefault("Referrer-Policy", "same-origin")
+        if request.path.startswith("/api/") and "Cache-Control" not in resp.headers:
+            signed_out = app.config["SESSION_COOKIE_NAME"] not in request.cookies
+            if request.method == "GET" and request.path in EDGE_CACHED and signed_out and resp.status_code == 200:
+                # Same for everyone, so Vercel's CDN may answer it for 30s (and serve it stale while refreshing)
+                resp.headers["Cache-Control"] = "public, max-age=0, s-maxage=30, stale-while-revalidate=300"
+                # Vercel only caches responses it proxies from another server (our /api rewrite) when asked to
+                resp.headers["Vercel-CDN-Cache-Control"] = "max-age=30, stale-while-revalidate=300"
+                resp.headers["x-vercel-enable-rewrite-caching"] = "1"
+            else:
+                resp.headers["Cache-Control"] = "private, no-cache"
         return resp
 
     @app.context_processor
@@ -382,7 +385,10 @@ def register_routes(app):
     @app.route("/uploads/<path:filename>")
     @login_required
     def uploaded_file(filename):
-        return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+        resp = send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+        # Uploads get a new random name whenever they change, so browsers can keep them for a year.
+        resp.headers["Cache-Control"] = "private, max-age=31536000, immutable"
+        return resp
 
     # ---- events
 
