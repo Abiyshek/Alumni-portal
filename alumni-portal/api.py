@@ -161,18 +161,25 @@ def logout():
 
 # ---------------------------------------------------------------- public
 
+_home_cache = {"expires": 0.0, "data": None}
+HOME_CACHE_SECONDS = 30
+
+
 @bp.get("/home")
 def home():
+    # The landing page is the busiest public page (shared links, WhatsApp); its numbers can be 30s old.
+    if time.time() < _home_cache["expires"] and not current_app.config.get("TESTING"):
+        return jsonify(_home_cache["data"])
     now = now_iso()
-    stats = {
-        "alumni": query("SELECT COUNT(*) c FROM users WHERE status='approved'", one=True)["c"],
-        "batches": query("SELECT COUNT(DISTINCT batch_year) c FROM users WHERE status='approved'", one=True)["c"],
-        "mentors": query("SELECT COUNT(*) c FROM users WHERE status='approved' AND willing_to_mentor=1", one=True)["c"],
-        "events": query("SELECT COUNT(*) c FROM events WHERE starts_at >= ?", (now,), one=True)["c"],
-    }
+    counts = query("""SELECT COUNT(*) alumni, COUNT(DISTINCT batch_year) batches,
+                             COALESCE(SUM(willing_to_mentor), 0) mentors
+                      FROM users WHERE status='approved'""", one=True)
+    stats = {**dict(counts), "events": query("SELECT COUNT(*) c FROM events WHERE starts_at >= ?", (now,), one=True)["c"]}
     news = rows(query("SELECT id, title, body, created_at FROM announcements ORDER BY created_at DESC, id DESC LIMIT 3"))
     events = rows(query("SELECT id, title, location, starts_at FROM events WHERE starts_at >= ? ORDER BY starts_at LIMIT 3", (now,)))
-    return jsonify(stats=stats, news=news, events=events)
+    data = {"stats": stats, "news": news, "events": events}
+    _home_cache.update(expires=time.time() + HOME_CACHE_SECONDS, data=data)
+    return jsonify(data)
 
 
 @bp.get("/news")
